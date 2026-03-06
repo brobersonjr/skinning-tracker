@@ -318,23 +318,24 @@ end
 local lootFrame = CreateFrame("Frame")
 lootFrame:RegisterEvent("CHAT_MSG_LOOT")
 lootFrame:SetScript("OnEvent", function(self, event, msg)
+    -- Only track the current player's own loot
+    if not msg:find("^You receive loot:") then return end
+
     -- Item links in loot messages contain the item ID: |Hitem:ITEMID:...|h[Name]|h
     local itemId = tonumber(msg:match("|Hitem:(%d+)"))
 
     if ST.debug then
-        local lookupResult = majesticLookup[itemId]
         local data = ST:GetCharData()
         print(string.format("|cffffff00[SKT Debug]|r LOOT itemId=%s name=%s hasData=%s items=%s",
             tostring(itemId),
-            tostring(lookupResult),
+            tostring(majesticLookup[itemId]),
             tostring(data ~= nil),
             data and data.items and tostring(data.items[itemId]) or "nil"))
     end
 
     if itemId and majesticLookup[itemId] then
         local qty = tonumber(msg:match(" x(%d+)")) or 1
-        PlayChaChing()
-        print("|cff00ff96[SkinningTracker]|r |cffffff00" .. majesticLookup[itemId] .. "|r x" .. qty .. " looted!")
+        local itemName = majesticLookup[itemId]
         local data = ST:GetCharData()
         if data then
             data.items[itemId] = (data.items[itemId] or 0) + qty
@@ -342,6 +343,8 @@ lootFrame:SetScript("OnEvent", function(self, event, msg)
             if ST.UI and ST.UI.Refresh then ST.UI:Refresh() end
             if ST.RefreshDataText then ST:RefreshDataText() end
         end
+        print("|cff00ff96[SkinningTracker]|r |cffffff00" .. itemName .. "|r x" .. qty .. " looted!")
+        pcall(PlayChaChing)
     end
 end)
 
