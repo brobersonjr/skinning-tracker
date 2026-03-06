@@ -302,6 +302,9 @@ ST.MAJESTIC_ITEMS = {
     { id = 238530, name = "Majestic Fin" },
 }
 
+-- Session counts: reset each login, not saved to DB
+ST.sessionItems = {}
+
 local majesticLookup = {}
 for _, item in ipairs(ST.MAJESTIC_ITEMS) do
     majesticLookup[item.id] = item.name
@@ -324,6 +327,7 @@ lootFrame:SetScript("OnEvent", function(self, event, msg)
         local data = ST:GetCharData()
         if data then
             data.items[itemId] = (data.items[itemId] or 0) + qty
+            ST.sessionItems[itemId] = (ST.sessionItems[itemId] or 0) + qty
             if ST.UI and ST.UI.Refresh then ST.UI:Refresh() end
             if ST.RefreshDataText then ST:RefreshDataText() end
         end
@@ -342,6 +346,8 @@ loadFrame:SetScript("OnEvent", function(self, event, arg1)
     elseif event == "PLAYER_LOGIN" then
         -- Ensure DB is ready after all saved vars load
         InitDB()
+        -- Reset session item counts for this login
+        ST.sessionItems = {}
         -- Auto-detect Midnight Skinning via the skinning spell; store class for UI coloring
         local data = ST:GetCharData()
         data.isMidnightSkinner = IsSpellKnown(SKINNING_SPELL_ID)

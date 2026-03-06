@@ -239,7 +239,7 @@ local function BuildLootSection(content, startY)
     local y = startY - 20
 
     -- Section header
-    local header = MakeLabel(content, C_YELLOW .. "Item Counts" .. C_RESET, 12, "LEFT")
+    local header = MakeLabel(content, C_YELLOW .. "Item Counts" .. C_GREY .. "  (session / total)" .. C_RESET, 12, "LEFT")
     header:SetPoint("TOPLEFT", content, "TOPLEFT", 4, y)
     y = y - ROW_HEIGHT
 
@@ -267,8 +267,9 @@ local function BuildLootSection(content, startY)
 
         for i, item in ipairs(ST.MAJESTIC_ITEMS) do
             local x = COL_CHAR + (i - 1) * COL_ITEM
-            local count = (charData.items and charData.items[item.id]) or 0
-            local countLabel = MakeLabel(content, C_WHITE .. tostring(count) .. C_RESET, 11, "CENTER")
+            local session = isCurrent and (ST.sessionItems[item.id] or 0) or "-"
+            local total   = (charData.items and charData.items[item.id]) or 0
+            local countLabel = MakeLabel(content, C_GREEN .. tostring(session) .. C_GREY .. " / " .. C_WHITE .. tostring(total) .. C_RESET, 11, "CENTER")
             countLabel:SetPoint("TOPLEFT", content, "TOPLEFT", x, y)
             countLabel:SetWidth(COL_ITEM)
         end
