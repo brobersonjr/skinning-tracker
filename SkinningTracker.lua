@@ -320,6 +320,12 @@ lootFrame:RegisterEvent("CHAT_MSG_LOOT")
 lootFrame:SetScript("OnEvent", function(self, event, msg)
     -- Item links in loot messages contain the item ID: |Hitem:ITEMID:...|h[Name]|h
     local itemId = tonumber(msg:match("|Hitem:(%d+)"))
+
+    if ST.debug then
+        print(string.format("|cffffff00[SKT Debug]|r LOOT msg=%s", msg))
+        print(string.format("|cffffff00[SKT Debug]|r LOOT parsed itemId=%s", tostring(itemId)))
+    end
+
     if itemId and majesticLookup[itemId] then
         local qty = tonumber(msg:match(" x(%d+)")) or 1
         PlayChaChing()
