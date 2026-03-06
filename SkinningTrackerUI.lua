@@ -131,6 +131,14 @@ local function BuildHeader(content)
     return y - 20
 end
 
+-- Returns a hex color code for a class file name (e.g. "WARRIOR"), or nil
+local function GetClassColor(classFile)
+    if classFile and RAID_CLASS_COLORS and RAID_CLASS_COLORS[classFile] then
+        local c = RAID_CLASS_COLORS[classFile]
+        return string.format("|cff%02x%02x%02x", c.r * 255, c.g * 255, c.b * 255)
+    end
+end
+
 -- ---------------------------------------------------------------------------
 -- Build or refresh all character rows
 -- ---------------------------------------------------------------------------
@@ -154,10 +162,10 @@ local function BuildRows(content, startY)
 
         -- Highlight current character row
         local isCurrent = (charKey == (UnitName("player") .. "-" .. GetRealmName()))
-        local charColor = isCurrent and C_WHITE or C_GREY
+        local charColor = GetClassColor(charData.class) or (isCurrent and C_WHITE or C_GREY)
 
         -- Character name label (truncate if long)
-        local charLabel = MakeLabel(content, charColor .. charKey .. C_RESET, 11, "LEFT")
+        local charLabel = MakeLabel(content, charColor .. charKey .. C_RESET, 13, "LEFT")
         charLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 4, y)
         charLabel:SetWidth(COL_CHAR - 4)
         table.insert(rowWidgets, charLabel)

@@ -54,6 +54,7 @@ local function InitDB()
         SkinningTrackerDB[key] = {
             isMidnightSkinner = false,
             beasts = {},
+            class = nil,
         }
     end
 end
@@ -325,9 +326,10 @@ loadFrame:SetScript("OnEvent", function(self, event, arg1)
     elseif event == "PLAYER_LOGIN" then
         -- Ensure DB is ready after all saved vars load
         InitDB()
-        -- Auto-detect Midnight Skinning via the skinning spell
+        -- Auto-detect Midnight Skinning via the skinning spell; store class for UI coloring
         local data = ST:GetCharData()
         data.isMidnightSkinner = IsSpellKnown(SKINNING_SPELL_ID)
+        data.class = select(2, UnitClass("player"))
         if data.isMidnightSkinner then
             print("|cff00ff96[SkinningTracker]|r Loaded. Midnight Skinning detected — |cffffff00/skt|r to open · |cffffff00/skt debug|r to diagnose tracking.")
         end
