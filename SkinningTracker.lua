@@ -312,7 +312,7 @@ end
 
 -- Play a money sound using the Midnight C_Sound API.
 local function PlayChaChing()
-    C_Sound.PlaySound({ soundID = SOUNDKIT.IG_TREASURE_OPEN, channel = "Master" })
+    C_Sound.PlaySound(SOUNDKIT.IG_TREASURE_OPEN, "Master")
 end
 
 local lootFrame = CreateFrame("Frame")
@@ -344,7 +344,7 @@ lootFrame:SetScript("OnEvent", function(self, event, msg)
             if ST.RefreshDataText then ST:RefreshDataText() end
         end
         print("|cff00ff96[SkinningTracker]|r |cffffff00" .. itemName .. "|r x" .. qty .. " looted!")
-        pcall(PlayChaChing)
+        PlayChaChing()
     end
 end)
 
