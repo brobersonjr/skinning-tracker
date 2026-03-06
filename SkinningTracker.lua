@@ -322,8 +322,13 @@ lootFrame:SetScript("OnEvent", function(self, event, msg)
     local itemId = tonumber(msg:match("|Hitem:(%d+)"))
 
     if ST.debug then
-        print(string.format("|cffffff00[SKT Debug]|r LOOT msg=%s", msg))
-        print(string.format("|cffffff00[SKT Debug]|r LOOT parsed itemId=%s", tostring(itemId)))
+        local lookupResult = majesticLookup[itemId]
+        local data = ST:GetCharData()
+        print(string.format("|cffffff00[SKT Debug]|r LOOT itemId=%s name=%s hasData=%s items=%s",
+            tostring(itemId),
+            tostring(lookupResult),
+            tostring(data ~= nil),
+            data and data.items and tostring(data.items[itemId]) or "nil"))
     end
 
     if itemId and majesticLookup[itemId] then
