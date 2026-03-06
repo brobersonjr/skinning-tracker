@@ -14,10 +14,10 @@ local C_ORANGE  = "|cffff9900"
 local C_WHITE   = "|cffffffff"
 local C_RESET   = "|r"
 
-local FRAME_WIDTH  = 660
+local FRAME_WIDTH  = 700
 local FRAME_HEIGHT = 480
 local ROW_HEIGHT   = 20
-local COL_CHAR     = 160  -- character column width
+local COL_CHAR     = 210  -- character column width
 local COL_BEAST    = 90   -- each beast column width
 
 -- ---------------------------------------------------------------------------
@@ -162,7 +162,9 @@ local function BuildRows(content, startY)
 
         -- Highlight current character row
         local isCurrent = (charKey == (UnitName("player") .. "-" .. GetRealmName()))
-        local charColor = GetClassColor(charData.class) or (isCurrent and C_WHITE or C_GREY)
+        -- For the current character, read class live so color works before a relog
+        local classFile = isCurrent and select(2, UnitClass("player")) or charData.class
+        local charColor = GetClassColor(classFile) or (isCurrent and C_WHITE or C_GREY)
 
         -- Character name label (truncate if long)
         local charLabel = MakeLabel(content, charColor .. charKey .. C_RESET, 13, "LEFT")
