@@ -4,7 +4,6 @@
 ## Author: You
 ## Version: 1.0.0
 ## SavedVariables: SkinningTrackerDB
-## OptionalDeps: LibSharedMedia-3.0
 
 SkinningTracker.lua
 SkinningTrackerUI.lua

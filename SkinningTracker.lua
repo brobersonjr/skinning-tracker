@@ -288,18 +288,13 @@ local MAJESTIC_ITEMS = {
     [238530] = "Majestic Fin",
 }
 
--- Play the cha-ching sound via LibSharedMedia if available, else fall back to a built-in SOUNDKIT
+-- Play a money sound. AuctionWindowOpen.wav is the classic WoW coin cha-ching.
+-- Falls back to SOUNDKIT.IG_TREASURE_OPEN if the file isn't found.
 local function PlayChaChing()
-    local LSM = LibStub and LibStub("LibSharedMedia-3.0", true)
-    if LSM then
-        local soundPath = LSM:Fetch("sound", "Auction Window Open")
-        if soundPath then
-            PlaySoundFile(soundPath, "Master")
-            return
-        end
+    local handle = PlaySoundFile("Sound\\Interface\\AuctionWindowOpen.wav", "Master")
+    if not handle then
+        PlaySound(SOUNDKIT.IG_TREASURE_OPEN, "Master")
     end
-    -- Built-in WoW treasure sound as reliable fallback
-    PlaySound(SOUNDKIT.IG_TREASURE_OPEN, "Master")
 end
 
 local lootFrame = CreateFrame("Frame")
