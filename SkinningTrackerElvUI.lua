@@ -12,6 +12,7 @@ local C_GREY   = "|cff888888"
 local C_RESET  = "|r"
 
 local dtFrame -- reference captured on first OnEvent, used by ST:RefreshDataText()
+local DT      -- ElvUI DataTexts module, set in InitElvUI
 
 local function UpdateText(self)
     if not ST or not ST.GetCharData then return end
@@ -57,45 +58,48 @@ local function OnClick(self, btn)
 end
 
 local function OnEnter(self)
-    GameTooltip:SetOwner(self, "ANCHOR_NONE")
-    GameTooltip:ClearLines()
-    GameTooltip:AddLine("Skinning Tracker", 0, 1, 0.59)
+    if not DT then return end
+    DT.tooltip:ClearLines()
+    DT.tooltip:SmartAnchorTo(self)
+    DT.tooltip:SetMinimumWidth(200)
+    DT.tooltip:AddLine("Skinning Tracker", 0, 1, 0.59)
 
     if not ST or not ST.GetCharData then
-        GameTooltip:Show()
+        DT.tooltip:Show()
         return
     end
 
     local data = ST:GetCharData()
     if not data or not data.isMidnightSkinner then
-        GameTooltip:AddLine("Not a Midnight Skinner", 1, 1, 1)
-        GameTooltip:Show()
+        DT.tooltip:AddLine("Not a Midnight Skinner", 1, 1, 1)
+        DT.tooltip:Show()
         return
     end
 
-    GameTooltip:AddLine(" ")
+    DT.tooltip:AddLine(" ")
     for _, beast in ipairs(ST.BEASTS) do
         local skinned = ST:HasSkinnedToday(beast.id)
         local r, g, b = skinned and 0 or 1, skinned and 1 or 0.27, skinned and 0.59 or 0.27
         local status = skinned and "Done" or "Remaining"
-        GameTooltip:AddDoubleLine(beast.name, status, 1, 1, 1, r, g, b)
+        DT.tooltip:AddDoubleLine(beast.name, status, 1, 1, 1, r, g, b)
     end
 
-    GameTooltip:AddLine(" ")
-    GameTooltip:AddLine("Reset in: " .. ST:GetResetCountdown(), 1, 0.6, 0)
-    GameTooltip:AddLine("Click to open Skinning Tracker", 0.5, 0.5, 0.5)
-    GameTooltip:Show()
+    DT.tooltip:AddLine(" ")
+    DT.tooltip:AddLine("Reset in: " .. ST:GetResetCountdown(), 1, 0.6, 0)
+    DT.tooltip:AddLine("Click to open Skinning Tracker", 0.5, 0.5, 0.5)
+    DT.tooltip:Show()
 end
 
 local function OnLeave()
-    GameTooltip:Hide()
+    if not DT then return end
+    DT.tooltip:Hide()
 end
 
 local function InitElvUI()
     if not C_AddOns.IsAddOnLoaded("ElvUI") then return end
     local E = unpack(ElvUI)
     if not E then return end
-    local DT = E:GetModule("DataTexts")
+    DT = E:GetModule("DataTexts")
     if not DT then return end
 
     DT:RegisterDatatext("SkinningTracker", "SkinningTracker", {"PLAYER_LOGIN"}, OnEvent, nil, OnClick, OnEnter, OnLeave, "Skinning Tracker")
