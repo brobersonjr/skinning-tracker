@@ -48,14 +48,18 @@ local function InitDB()
     if not SkinningTrackerDB then
         SkinningTrackerDB = {}
     end
-    -- Top-level: SkinningTrackerDB[charKey] = { isMidnightSkinner = bool, beasts = { beastId = timestamp } }
     local key = GetCharKey()
     if not SkinningTrackerDB[key] then
         SkinningTrackerDB[key] = {
             isMidnightSkinner = false,
             beasts = {},
             class = nil,
+            items = {},
         }
+    end
+    -- Migrate existing entries that predate the items field
+    if not SkinningTrackerDB[key].items then
+        SkinningTrackerDB[key].items = {}
     end
 end
 
@@ -292,11 +296,16 @@ end)
 -- ---------------------------------------------------------------------------
 -- Majestic item loot detection + cha-ching sound
 -- ---------------------------------------------------------------------------
-local MAJESTIC_ITEMS = {
-    [238528] = "Majestic Claw",
-    [238529] = "Majestic Hide",
-    [238530] = "Majestic Fin",
+ST.MAJESTIC_ITEMS = {
+    { id = 238528, name = "Majestic Claw" },
+    { id = 238529, name = "Majestic Hide" },
+    { id = 238530, name = "Majestic Fin" },
 }
+
+local majesticLookup = {}
+for _, item in ipairs(ST.MAJESTIC_ITEMS) do
+    majesticLookup[item.id] = item.name
+end
 
 -- Play a money sound using the Midnight C_Sound API.
 local function PlayChaChing()
@@ -308,9 +317,16 @@ lootFrame:RegisterEvent("CHAT_MSG_LOOT")
 lootFrame:SetScript("OnEvent", function(self, event, msg)
     -- Item links in loot messages contain the item ID: |Hitem:ITEMID:...|h[Name]|h
     local itemId = tonumber(msg:match("|Hitem:(%d+)"))
-    if itemId and MAJESTIC_ITEMS[itemId] then
+    if itemId and majesticLookup[itemId] then
+        local qty = tonumber(msg:match(" x(%d+)")) or 1
         PlayChaChing()
-        print("|cff00ff96[SkinningTracker]|r |cffffff00" .. MAJESTIC_ITEMS[itemId] .. "|r looted!")
+        print("|cff00ff96[SkinningTracker]|r |cffffff00" .. majesticLookup[itemId] .. "|r x" .. qty .. " looted!")
+        local data = ST:GetCharData()
+        if data then
+            data.items[itemId] = (data.items[itemId] or 0) + qty
+            if ST.UI and ST.UI.Refresh then ST.UI:Refresh() end
+            if ST.RefreshDataText then ST:RefreshDataText() end
+        end
     end
 end)
 

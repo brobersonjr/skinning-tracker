@@ -19,6 +19,7 @@ local FRAME_HEIGHT = 480
 local ROW_HEIGHT   = 20
 local COL_CHAR     = 210  -- character column width
 local COL_BEAST    = 90   -- each beast column width
+local COL_ITEM     = 145  -- each item count column width
 
 -- ---------------------------------------------------------------------------
 -- Helper: create a standard button
@@ -221,8 +222,61 @@ local function BuildRows(content, startY)
         y = y - ROW_HEIGHT
     end
 
-    -- Resize content to fit rows
-    content:SetHeight(math.abs(startY - y) + 20)
+    return y
+end
+
+-- ---------------------------------------------------------------------------
+-- Build item count section below beast rows
+-- ---------------------------------------------------------------------------
+local function BuildLootSection(content, startY)
+    -- Divider
+    local line = content:CreateTexture(nil, "BACKGROUND")
+    line:SetColorTexture(0.4, 0.4, 0.4, 0.6)
+    line:SetHeight(1)
+    line:SetPoint("TOPLEFT", content, "TOPLEFT", 2, startY - 8)
+    line:SetWidth(FRAME_WIDTH - 50)
+
+    local y = startY - 20
+
+    -- Section header
+    local header = MakeLabel(content, C_YELLOW .. "Item Counts" .. C_RESET, 12, "LEFT")
+    header:SetPoint("TOPLEFT", content, "TOPLEFT", 4, y)
+    y = y - ROW_HEIGHT
+
+    -- Item name column headers
+    for i, item in ipairs(ST.MAJESTIC_ITEMS) do
+        local x = COL_CHAR + (i - 1) * COL_ITEM
+        local h = MakeLabel(content, C_YELLOW .. item.name .. C_RESET, 10, "CENTER")
+        h:SetPoint("TOPLEFT", content, "TOPLEFT", x, y)
+        h:SetWidth(COL_ITEM)
+    end
+    y = y - ROW_HEIGHT
+
+    -- Per-character rows
+    local chars = ST:GetAllCharacters()
+    for _, charEntry in ipairs(chars) do
+        local charKey  = charEntry.key
+        local charData = charEntry.data
+        local isCurrent = (charKey == (UnitName("player") .. "-" .. GetRealmName()))
+        local classFile = isCurrent and select(2, UnitClass("player")) or charData.class
+        local charColor = GetClassColor(classFile) or (isCurrent and C_WHITE or C_GREY)
+
+        local nameLabel = MakeLabel(content, charColor .. charKey .. C_RESET, 11, "LEFT")
+        nameLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 4, y)
+        nameLabel:SetWidth(COL_CHAR - 4)
+
+        for i, item in ipairs(ST.MAJESTIC_ITEMS) do
+            local x = COL_CHAR + (i - 1) * COL_ITEM
+            local count = (charData.items and charData.items[item.id]) or 0
+            local countLabel = MakeLabel(content, C_WHITE .. tostring(count) .. C_RESET, 11, "CENTER")
+            countLabel:SetPoint("TOPLEFT", content, "TOPLEFT", x, y)
+            countLabel:SetWidth(COL_ITEM)
+        end
+
+        y = y - ROW_HEIGHT
+    end
+
+    return y
 end
 
 -- ---------------------------------------------------------------------------
@@ -241,7 +295,9 @@ function UI:Refresh()
     UI.rows = {}
 
     local y = BuildHeader(self.content)
-    BuildRows(self.content, y)
+    y = BuildRows(self.content, y)
+    y = BuildLootSection(self.content, y)
+    self.content:SetHeight(math.abs(y) + 20)
 
     -- Update reset countdown
     self.frame.resetLabel:SetText("Reset in: " .. C_ORANGE .. ST:GetResetCountdown() .. C_RESET)
