@@ -288,13 +288,9 @@ local MAJESTIC_ITEMS = {
     [238530] = "Majestic Fin",
 }
 
--- Play a money sound. AuctionWindowOpen.wav is the classic WoW coin cha-ching.
--- Falls back to SOUNDKIT.IG_TREASURE_OPEN if the file isn't found.
+-- Play a money sound using the Midnight C_Sound API.
 local function PlayChaChing()
-    local handle = PlaySoundFile("Sound\\Interface\\AuctionWindowOpen.wav", "Master")
-    if not handle then
-        PlaySound(SOUNDKIT.IG_TREASURE_OPEN, "Master")
-    end
+    C_Sound.PlaySound({ soundID = SOUNDKIT.IG_TREASURE_OPEN, channel = "Master" })
 end
 
 local lootFrame = CreateFrame("Frame")
