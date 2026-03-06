@@ -312,7 +312,15 @@ end
 
 -- Play a money sound using the Midnight C_Sound API.
 local function PlayChaChing()
-    C_Sound.PlaySound(SOUNDKIT.IG_TREASURE_OPEN, "Master")
+    if ST.debug then
+        print(string.format("|cffffff00[SKT Debug]|r Sound: SOUNDKIT.IG_TREASURE_OPEN=%s", tostring(SOUNDKIT and SOUNDKIT.IG_TREASURE_OPEN)))
+    end
+    local ok, err = pcall(function()
+        C_Sound.PlaySound(SOUNDKIT.IG_TREASURE_OPEN, "Master")
+    end)
+    if not ok and ST.debug then
+        print("|cffffff00[SKT Debug]|r Sound error: " .. tostring(err))
+    end
 end
 
 local lootFrame = CreateFrame("Frame")
