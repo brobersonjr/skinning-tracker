@@ -288,13 +288,27 @@ local MAJESTIC_ITEMS = {
     [238530] = "Majestic Fin",
 }
 
+-- Play the cha-ching sound via LibSharedMedia if available, else fall back to a built-in SOUNDKIT
+local function PlayChaChing()
+    local LSM = LibStub and LibStub("LibSharedMedia-3.0", true)
+    if LSM then
+        local soundPath = LSM:Fetch("sound", "Auction Window Open")
+        if soundPath then
+            PlaySoundFile(soundPath, "Master")
+            return
+        end
+    end
+    -- Built-in WoW treasure sound as reliable fallback
+    PlaySound(SOUNDKIT.IG_TREASURE_OPEN, "Master")
+end
+
 local lootFrame = CreateFrame("Frame")
 lootFrame:RegisterEvent("CHAT_MSG_LOOT")
 lootFrame:SetScript("OnEvent", function(self, event, msg)
     -- Item links in loot messages contain the item ID: |Hitem:ITEMID:...|h[Name]|h
     local itemId = tonumber(msg:match("|Hitem:(%d+)"))
     if itemId and MAJESTIC_ITEMS[itemId] then
-        PlaySoundFile("Sound\\Interface\\iCashRegisterOpen.ogg", "Master")
+        PlayChaChing()
         print("|cff00ff96[SkinningTracker]|r |cffffff00" .. MAJESTIC_ITEMS[itemId] .. "|r looted!")
     end
 end)
