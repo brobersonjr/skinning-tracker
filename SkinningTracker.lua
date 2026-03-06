@@ -79,6 +79,9 @@ function ST:MarkSkinned(beastId)
     if ST.UI and ST.UI.Refresh then
         ST.UI:Refresh()
     end
+    if ST.RefreshDataText then
+        ST:RefreshDataText()
+    end
 end
 
 -- Toggle a beast's skinned state (for manual checking via UI)
@@ -88,9 +91,13 @@ function ST:ToggleSkinned(beastId)
         self:GetCharData().beasts[beastId] = GetLastResetTime() - 1
     else
         self:MarkSkinned(beastId)
+        return -- MarkSkinned already calls RefreshDataText
     end
     if ST.UI and ST.UI.Refresh then
         ST.UI:Refresh()
+    end
+    if ST.RefreshDataText then
+        ST:RefreshDataText()
     end
 end
 
@@ -136,11 +143,13 @@ function ST:GetResetCountdown()
     return string.format("%dh %02dm", h, m)
 end
 
--- Returns all character keys in the DB and their data
+-- Returns all skinner character keys in the DB and their data
 function ST:GetAllCharacters()
     local chars = {}
     for key, data in pairs(SkinningTrackerDB) do
-        table.insert(chars, { key = key, data = data })
+        if data.isMidnightSkinner then
+            table.insert(chars, { key = key, data = data })
+        end
     end
     table.sort(chars, function(a, b) return a.key < b.key end)
     return chars
@@ -316,6 +325,11 @@ loadFrame:SetScript("OnEvent", function(self, event, arg1)
     elseif event == "PLAYER_LOGIN" then
         -- Ensure DB is ready after all saved vars load
         InitDB()
-        print("|cff00ff96[SkinningTracker]|r Loaded. |cffffff00/skt|r to open · |cffffff00/skt toggle|r to flag skinner · |cffffff00/skt debug|r to diagnose tracking.")
+        -- Auto-detect Midnight Skinning via the skinning spell
+        local data = ST:GetCharData()
+        data.isMidnightSkinner = IsSpellKnown(SKINNING_SPELL_ID)
+        if data.isMidnightSkinner then
+            print("|cff00ff96[SkinningTracker]|r Loaded. Midnight Skinning detected — |cffffff00/skt|r to open · |cffffff00/skt debug|r to diagnose tracking.")
+        end
     end
 end)

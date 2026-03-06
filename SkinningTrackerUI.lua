@@ -84,11 +84,6 @@ local function BuildFrame()
     resetLabel:SetFont("Fonts\\FRIZQT__.TTF", 11, "")
     f.resetLabel = resetLabel
 
-    local toggleBtn = MakeButton(bottomBar, 200, 22, "Toggle: Midnight Skinner", function()
-        ST:ToggleSkinner()
-    end)
-    toggleBtn:SetPoint("RIGHT", bottomBar, "RIGHT", 0, 0)
-    f.toggleBtn = toggleBtn
 
     UI.frame   = f
     UI.content = content
@@ -161,11 +156,8 @@ local function BuildRows(content, startY)
         local isCurrent = (charKey == (UnitName("player") .. "-" .. GetRealmName()))
         local charColor = isCurrent and C_WHITE or C_GREY
 
-        -- Is Midnight Skinner flag
-        local skinnerTag = charData.isMidnightSkinner and (C_GREEN .. " [S]" .. C_RESET) or (C_RED .. " [X]" .. C_RESET)
-
         -- Character name label (truncate if long)
-        local charLabel = MakeLabel(content, charColor .. charKey .. skinnerTag .. C_RESET, 11, "LEFT")
+        local charLabel = MakeLabel(content, charColor .. charKey .. C_RESET, 11, "LEFT")
         charLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 4, y)
         charLabel:SetWidth(COL_CHAR - 4)
         table.insert(rowWidgets, charLabel)
@@ -210,9 +202,9 @@ local function BuildRows(content, startY)
         y = y - ROW_HEIGHT
     end
 
-    -- If no characters yet, show a hint
+    -- If no skinner characters yet, show a hint
     if #chars == 0 then
-        local hint = MakeLabel(content, C_GREY .. "No characters tracked yet. Log in and use /st toggle to flag this character." .. C_RESET, 11, "LEFT")
+        local hint = MakeLabel(content, C_GREY .. "No skinner characters tracked yet. Log in with a character that has Midnight Skinning." .. C_RESET, 11, "LEFT")
         hint:SetPoint("TOPLEFT", content, "TOPLEFT", 4, y)
         hint:SetWidth(FRAME_WIDTH - 60)
         table.insert(UI.rows, { hint })
@@ -242,12 +234,7 @@ function UI:Refresh()
     BuildRows(self.content, y)
 
     -- Update reset countdown
-    local isSkinner = ST:IsMidnightSkinner()
-    local skinnerStr = isSkinner and (C_GREEN .. "Midnight Skinner" .. C_RESET) and (C_GREEN .. "Midnight Skinner" .. C_RESET) or (C_RED .. "Not a Skinner" .. C_RESET)
-    self.frame.resetLabel:SetText("Reset in: " .. C_ORANGE .. ST:GetResetCountdown() .. C_RESET .. "   This char: " .. skinnerStr)
-
-    local toggleText = isSkinner and "Disable: Midnight Skinner" or "Enable: Midnight Skinner"
-    self.frame.toggleBtn:SetText(toggleText)
+    self.frame.resetLabel:SetText("Reset in: " .. C_ORANGE .. ST:GetResetCountdown() .. C_RESET)
 end
 
 -- ---------------------------------------------------------------------------
