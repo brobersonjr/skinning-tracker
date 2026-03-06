@@ -92,7 +92,7 @@ local function OnLeave()
 end
 
 local function InitElvUI()
-    if not IsAddOnLoaded("ElvUI") then return end
+    if not C_AddOns.IsAddOnLoaded("ElvUI") then return end
     local E = unpack(ElvUI)
     if not E then return end
     local DT = E:GetModule("DataTexts")
