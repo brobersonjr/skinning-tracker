@@ -1,5 +1,5 @@
 # skinning-tracker
-wow addon to track Renown Beast Kill. You need the LUA files in a folder named "SkinningTracker" 
+wow addon to track Renown Beast Kill. You need the files in a folder named "SkinningTracker". Then place in the addons folder in you World of Warcraft Directory. 
 
 /skt to open the addon.
 
