@@ -338,16 +338,16 @@ for _, item in ipairs(ST.MAJESTIC_ITEMS) do
     majesticLookup[item.id] = item.name
 end
 
--- Play a money sound using the Midnight C_Sound API.
+-- Play a money sound on Majestic item loot.
 local function PlayChaChing()
+    local soundId = SOUNDKIT and SOUNDKIT.IG_TREASURE_OPEN
     if ST.debug then
-        print(string.format("|cffffff00[SKT Debug]|r Sound: SOUNDKIT.IG_TREASURE_OPEN=%s", tostring(SOUNDKIT and SOUNDKIT.IG_TREASURE_OPEN)))
+        print(string.format("|cffffff00[SKT Debug]|r PlayChaChing soundId=%s", tostring(soundId)))
     end
-    local ok, err = pcall(function()
-        C_Sound.PlaySound(SOUNDKIT.IG_TREASURE_OPEN, "Master")
-    end)
-    if not ok and ST.debug then
-        print("|cffffff00[SKT Debug]|r Sound error: " .. tostring(err))
+    if soundId then
+        PlaySound(soundId, "Master")
+    elseif ST.debug then
+        print("|cffffff00[SKT Debug]|r SOUNDKIT.IG_TREASURE_OPEN is nil, sound skipped.")
     end
 end
 

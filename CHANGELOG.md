@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.3.4 - 2026-03-07
+- Fix loot sound: use `PlaySound()` global instead of non-existent `C_Sound.PlaySound()`.
+
 ## 1.3.3 - 2026-03-08
 - Fix loot line matching to ensure Majestic item sounds trigger reliably.
 
