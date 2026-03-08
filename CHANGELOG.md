@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.3.5 - 2026-03-08
+- Fix loot sound: SOUNDKIT.IG_TREASURE_OPEN does not exist in Midnight; switched to PlaySoundFile with the classic MoneyFrameOpen.wav.
+
 ## 1.3.4 - 2026-03-07
 - Fix loot sound: use `PlaySound()` global instead of non-existent `C_Sound.PlaySound()`.
 

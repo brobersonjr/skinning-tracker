@@ -340,15 +340,10 @@ end
 
 -- Play a money sound on Majestic item loot.
 local function PlayChaChing()
-    local soundId = SOUNDKIT and SOUNDKIT.IG_TREASURE_OPEN
     if ST.debug then
-        print(string.format("|cffffff00[SKT Debug]|r PlayChaChing soundId=%s", tostring(soundId)))
+        print("|cffffff00[SKT Debug]|r PlayChaChing: attempting PlaySoundFile")
     end
-    if soundId then
-        PlaySound(soundId, "Master")
-    elseif ST.debug then
-        print("|cffffff00[SKT Debug]|r SOUNDKIT.IG_TREASURE_OPEN is nil, sound skipped.")
-    end
+    PlaySoundFile("Sound\\Interface\\MoneyFrameOpen.wav", "Master")
 end
 
 local lootFrame = CreateFrame("Frame")
