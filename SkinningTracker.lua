@@ -355,9 +355,19 @@ local lootFrame = CreateFrame("Frame")
 lootFrame:RegisterEvent("CHAT_MSG_LOOT")
 lootFrame:SetScript("OnEvent", function(self, event, msg)
     -- Only track the current player's own loot (locale-safe)
-    if LOOT_ITEM_SELF then
-        local pattern = LOOT_ITEM_SELF:gsub("%%s", "(.+)")
-        if not msg:match(pattern) then return end
+    local function BuildLootPattern(fmt)
+        if not fmt then return nil end
+        -- Escape Lua pattern metacharacters, then replace %s with a capture
+        local escaped = fmt:gsub("([%(%)%.%+%-%*%?%[%]%^%$])", "%%%1")
+        return escaped:gsub("%%s", "(.+)")
+    end
+
+    local selfSingle = BuildLootPattern(LOOT_ITEM_SELF)
+    local selfMulti  = BuildLootPattern(LOOT_ITEM_SELF_MULTIPLE)
+    if selfSingle or selfMulti then
+        if not ((selfSingle and msg:match(selfSingle)) or (selfMulti and msg:match(selfMulti))) then
+            return
+        end
     else
         if not msg:find("^You receive loot:") then return end
     end
