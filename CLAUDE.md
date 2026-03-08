@@ -36,8 +36,27 @@ A third-party agent flagged 6 issues. Assessment below — do not act on dismiss
 | 5 | Hardcoded font `FRIZQT__.TTF` | **Dismiss** | This is the standard WoW font, always present |
 | 6 | Loot localization | **Already fixed** | 1.3.3 uses `LOOT_ITEM_SELF` / `LOOT_ITEM_SELF_MULTIPLE` with proper escaping |
 
+## Sound System Notes
+`PlaySoundFile` with file paths does NOT work in Midnight — all audio is in CASC storage with no path access.
+`PlaySound(soundKitId, channel)` is the correct API.
+`SOUNDKIT` table exists but many constants are nil. Confirmed present:
+- `SOUNDKIT.IG_BACKPACK_OPEN = 862`
+- `SOUNDKIT.IG_MAINMENU_OPEN = 850`
+- `SOUNDKIT.IG_QUEST_LIST_OPEN = 875`
+
+Currently using 862 as positive (Majestic drop) and 850 as negative (no drop) — **placeholders only**.
+Need to find better-sounding IDs. Test by looting a Majestic item in-game.
+
+## Sound Logic (SkinningTracker.lua)
+- `PlayChaChing()` — positive sound, called when a Majestic item is looted
+- `PlayNoMajestic()` — negative sound, called 3s after auto-skinning if no Majestic item looted
+- `AutoSkinBeast(beastId)` — called on confirmed skinning; marks beast, prints chat, starts 3s timer
+- `majesticExpectedToken` — token system to cancel the negative sound timer when Majestic drops
+- When Majestic loot detected: sets `majesticExpectedToken = nil` to cancel pending negative sound
+
 ## Known Issues / Open Questions
 <!-- Agents: append findings below with a date and source label -->
+- Sound placeholder IDs (862/850) need replacing with better reward/negative sounds once confirmed working in-game.
 
 ---
 
