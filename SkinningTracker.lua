@@ -162,6 +162,8 @@ function ST:GetAllCharacters()
 end
 
 -- Slash command handler
+local PlayChaChing
+local MAJESTIC_SOUND_ID = 891 -- coin/cash-register style cue
 local function SlashHandler(msg)
     local cmd = strtrim(msg):lower()
     if cmd == "toggle" then
@@ -196,6 +198,17 @@ local function SlashHandler(msg)
         ST.debug = not ST.debug
         local state = ST.debug and "|cff00ff96ON|r" or "|cffff4444OFF|r"
         print("|cff00ff96[SkinningTracker]|r Debug mode " .. state .. ". Cast any skinning spell to inspect events and target GUID.")
+    elseif cmd == "testsound" then
+        PlayChaChing()
+        print("|cff00ff96[SkinningTracker]|r Played test sound ID " .. tostring(MAJESTIC_SOUND_ID) .. ".")
+    elseif cmd:sub(1, 9) == "testsound " then
+        local id = tonumber(strtrim(cmd:sub(10)))
+        if not id then
+            print("|cff00ff96[SkinningTracker]|r Usage: /skt testsound <soundId>")
+            return
+        end
+        local ok = PlaySound(id, "Master")
+        print("|cff00ff96[SkinningTracker]|r Test sound ID " .. tostring(id) .. (ok and " played." or " failed."))
     else
         if ST.UI then
             if ST.UI.frame:IsShown() then
@@ -252,7 +265,7 @@ end
 local pendingBeastId = nil
 local pendingInterrupted = false  -- true if the cast was interrupted before CHANNEL_STOP fires
 
--- Forward declaration: defined after PlayNoMajestic below
+-- Forward declaration: defined after sound helpers below
 local AutoSkinBeast
 
 local trackFrame = CreateFrame("Frame")
@@ -326,25 +339,15 @@ for _, item in ipairs(ST.MAJESTIC_ITEMS) do
 end
 
 -- Play a positive sound on Majestic item loot.
--- TODO: replace placeholder (IG_BACKPACK_OPEN=862) with a proper reward sound once confirmed.
-local function PlayChaChing()
-    if SOUNDKIT and SOUNDKIT.IG_BACKPACK_OPEN then
-        PlaySound(SOUNDKIT.IG_BACKPACK_OPEN, "Master")
+-- Uses a single sell/coin-style cue for Majestic loot alerts.
+PlayChaChing = function()
+    local ok = PlaySound(MAJESTIC_SOUND_ID, "Master")
+    if ST.debug and not ok then
+        print("|cffffff00[SKT Debug]|r PlayChaChing failed for sound ID " .. tostring(MAJESTIC_SOUND_ID) .. ".")
     end
 end
 
--- Play a negative sound when no Majestic item drops from a skinned beast.
--- TODO: replace placeholder (IG_MAINMENU_OPEN=850) with a proper negative sound once confirmed.
-local function PlayNoMajestic()
-    if SOUNDKIT and SOUNDKIT.IG_MAINMENU_OPEN then
-        PlaySound(SOUNDKIT.IG_MAINMENU_OPEN, "Master")
-    end
-end
-
--- Token used to cancel the no-majestic timer if a Majestic item is looted in time.
-local majesticExpectedToken = nil
-
--- Called when a beast is auto-skinned: marks it and starts a 3s window waiting for Majestic loot.
+-- Called when a beast is auto-skinned: marks it and prints chat feedback.
 AutoSkinBeast = function(beastId)
     ST:MarkSkinned(beastId)
     local beastName = beastId
@@ -352,15 +355,6 @@ AutoSkinBeast = function(beastId)
         if beast.id == beastId then beastName = beast.name; break end
     end
     print("|cff00ff96[SkinningTracker]|r Auto-tracked: |cffffff00" .. beastName .. "|r skinned!")
-
-    local token = (majesticExpectedToken or 0) + 1
-    majesticExpectedToken = token
-    C_Timer.After(3, function()
-        if majesticExpectedToken == token then
-            majesticExpectedToken = nil
-            PlayNoMajestic()
-        end
-    end)
 end
 
 local lootFrame = CreateFrame("Frame")
@@ -406,7 +400,6 @@ lootFrame:SetScript("OnEvent", function(self, event, msg)
             if ST.UI and ST.UI.Refresh then ST.UI:Refresh() end
             if ST.RefreshDataText then ST:RefreshDataText() end
         end
-        majesticExpectedToken = nil  -- cancel the no-majestic timer
         print("|cff00ff96[SkinningTracker]|r |cffffff00" .. itemName .. "|r x" .. qty .. " looted!")
         PlayChaChing()
     end

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.7 - 2026-03-08
+- Simplify Majestic loot audio to positive-only behavior (no negative "no drop" sound).
+- Add `/skt testsound` and `/skt testsound <soundId>` for in-game sound verification.
+- Set Majestic loot alert to single confirmed working sound ID `891` (sell/coin cue).
+
 ## 1.3.6 - 2026-03-08
 - Add negative sound when a skinned beast yields no Majestic item (3-second window after skinning).
 - Sound placeholders in use pending in-game confirmation of working sound IDs.

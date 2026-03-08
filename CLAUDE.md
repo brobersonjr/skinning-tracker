@@ -39,24 +39,23 @@ A third-party agent flagged 6 issues. Assessment below — do not act on dismiss
 ## Sound System Notes
 `PlaySoundFile` with file paths does NOT work in Midnight — all audio is in CASC storage with no path access.
 `PlaySound(soundKitId, channel)` is the correct API.
-`SOUNDKIT` table exists but many constants are nil. Confirmed present:
-- `SOUNDKIT.IG_BACKPACK_OPEN = 862`
-- `SOUNDKIT.IG_MAINMENU_OPEN = 850`
-- `SOUNDKIT.IG_QUEST_LIST_OPEN = 875`
+`SOUNDKIT` table may be sparse/nil in Midnight for some constants.
+Use direct numeric sound IDs when needed.
 
-Currently using 862 as positive (Majestic drop) and 850 as negative (no drop) — **placeholders only**.
-Need to find better-sounding IDs. Test by looting a Majestic item in-game.
+Current confirmed working Majestic loot alert:
+- `891` (sell/coin cue), played via `PlaySound(891, "Master")`
 
 ## Sound Logic (SkinningTracker.lua)
-- `PlayChaChing()` — positive sound, called when a Majestic item is looted
-- `PlayNoMajestic()` — negative sound, called 3s after auto-skinning if no Majestic item looted
-- `AutoSkinBeast(beastId)` — called on confirmed skinning; marks beast, prints chat, starts 3s timer
-- `majesticExpectedToken` — token system to cancel the negative sound timer when Majestic drops
-- When Majestic loot detected: sets `majesticExpectedToken = nil` to cancel pending negative sound
+- `PlayChaChing()` — positive-only sound (`891`), called when a Majestic item is looted
+- `AutoSkinBeast(beastId)` — called on confirmed skinning; marks beast and prints chat only
+- No negative/no-drop sound logic
+- Slash testing helpers:
+  - `/skt testsound` plays configured Majestic sound ID
+  - `/skt testsound <soundId>` tests any candidate ID in-game
 
 ## Known Issues / Open Questions
 <!-- Agents: append findings below with a date and source label -->
-- Sound placeholder IDs (862/850) need replacing with better reward/negative sounds once confirmed working in-game.
+- No known open sound issues after confirming ID `891` in-game.
 
 ---
 
@@ -66,3 +65,9 @@ Need to find better-sounding IDs. Test by looting a Majestic item in-game.
 - Finding 1
 - Finding 2
 -->
+
+### [2026-03-08] GPT-5 Codex
+- Reviewed `SkinningTracker.lua` sound flow and identified overlap risk from shared no-drop timer token.
+- Simplified to positive-only Majestic loot sound per user requirement.
+- Added `/skt testsound` and `/skt testsound <soundId>` to validate audio quickly in-game.
+- Confirmed user-selected alert sound ID `891`; removed fallback chain and negative-sound logic.
