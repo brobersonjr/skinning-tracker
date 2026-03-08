@@ -96,19 +96,32 @@ end
 -- ---------------------------------------------------------------------------
 local function BuildHeader(content)
     local y = -6
+
+    UI.header = UI.header or {}
+    UI.header.beastHeaders = UI.header.beastHeaders or {}
+
     -- "Character" label
-    local charHeader = MakeLabel(content, C_YELLOW .. "Character" .. C_RESET, 12, "LEFT")
-    charHeader:SetPoint("TOPLEFT", content, "TOPLEFT", 4, y)
+    if not UI.header.charHeader then
+        UI.header.charHeader = MakeLabel(content, "", 12, "LEFT")
+        UI.header.charHeader:SetPoint("TOPLEFT", content, "TOPLEFT", 4, y)
+    end
+    UI.header.charHeader:SetText(C_YELLOW .. "Character" .. C_RESET)
+    UI.header.charHeader:Show()
 
     -- Beast name headers
     for i, beast in ipairs(ST.BEASTS) do
         local x = COL_CHAR + (i - 1) * COL_BEAST
-        local bHeader = MakeLabel(content, C_YELLOW .. beast.name .. C_RESET, 10, "CENTER")
+        local bHeader = UI.header.beastHeaders[i]
+        if not bHeader then
+            bHeader = MakeLabel(content, "", 10, "CENTER")
+            bHeader:SetWidth(COL_BEAST)
+            bHeader:EnableMouse(true)
+            UI.header.beastHeaders[i] = bHeader
+        end
         bHeader:SetPoint("TOPLEFT", content, "TOPLEFT", x, y)
-        bHeader:SetWidth(COL_BEAST)
+        bHeader:SetText(C_YELLOW .. beast.name .. C_RESET)
 
         -- Tooltip with zone/coords
-        bHeader:EnableMouse(true)
         local zone = beast.zone
         local coords = beast.coords
         bHeader:SetScript("OnEnter", function(self)
@@ -120,14 +133,23 @@ local function BuildHeader(content)
             GameTooltip:Show()
         end)
         bHeader:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        bHeader:Show()
+    end
+
+    -- Hide any extra beast headers if list shrank
+    for i = #ST.BEASTS + 1, #UI.header.beastHeaders do
+        UI.header.beastHeaders[i]:Hide()
     end
 
     -- Divider line
-    local line = content:CreateTexture(nil, "BACKGROUND")
-    line:SetColorTexture(0.4, 0.4, 0.4, 0.6)
-    line:SetHeight(1)
-    line:SetPoint("TOPLEFT", content, "TOPLEFT", 2, y - 16)
-    line:SetWidth(FRAME_WIDTH - 50)
+    if not UI.header.divider then
+        UI.header.divider = content:CreateTexture(nil, "BACKGROUND")
+        UI.header.divider:SetColorTexture(0.4, 0.4, 0.4, 0.6)
+        UI.header.divider:SetHeight(1)
+        UI.header.divider:SetWidth(FRAME_WIDTH - 50)
+    end
+    UI.header.divider:SetPoint("TOPLEFT", content, "TOPLEFT", 2, y - 16)
+    UI.header.divider:Show()
 
     return y - 20
 end
@@ -144,22 +166,21 @@ end
 -- Build or refresh all character rows
 -- ---------------------------------------------------------------------------
 local function BuildRows(content, startY)
-    -- Wipe old rows
-    for _, row in ipairs(UI.rows) do
-        for _, widget in ipairs(row) do
-            widget:Hide()
-            if widget.SetText then widget:SetText("") end
-        end
-    end
-    UI.rows = {}
+    UI.rows = UI.rows or {}
 
     local chars = ST:GetAllCharacters()
     local y = startY
 
-    for _, charEntry in ipairs(chars) do
+    for i, charEntry in ipairs(chars) do
         local charKey  = charEntry.key
         local charData = charEntry.data
-        local rowWidgets = {}
+        local row = UI.rows[i]
+        if not row then
+            row = { checkboxes = {} }
+            row.charLabel = MakeLabel(content, "", 13, "LEFT")
+            row.charLabel:SetWidth(COL_CHAR - 4)
+            UI.rows[i] = row
+        end
 
         -- Highlight current character row
         local isCurrent = (charKey == (UnitName("player") .. "-" .. GetRealmName()))
@@ -167,59 +188,69 @@ local function BuildRows(content, startY)
         local classFile = isCurrent and select(2, UnitClass("player")) or charData.class
         local charColor = GetClassColor(classFile) or (isCurrent and C_WHITE or C_GREY)
 
-        -- Character name label (truncate if long)
-        local charLabel = MakeLabel(content, charColor .. charKey .. C_RESET, 13, "LEFT")
-        charLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 4, y)
-        charLabel:SetWidth(COL_CHAR - 4)
-        table.insert(rowWidgets, charLabel)
+        -- Character name label
+        row.charLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 4, y)
+        row.charLabel:SetText(charColor .. charKey .. C_RESET)
+        row.charLabel:Show()
 
         -- One checkbox per beast
-        for i, beast in ipairs(ST.BEASTS) do
-            local x = COL_CHAR + (i - 1) * COL_BEAST + (COL_BEAST / 2) - 8
-
-            -- Check skinned state using the beast id and the stored timestamps vs last reset
-            -- We compute per-char directly since ST methods use the current char
-            local ts = charData.beasts[beast.id]
-            local lastReset = ST:GetTimeUntilReset() -- we use this path for current char only
-            -- For all chars compute independently:
-            local serverTime = C_DateAndTime and C_DateAndTime.GetServerTime and C_DateAndTime.GetServerTime() or time()
-            local function GetLastResetFor()
-                local d = date("!*t", serverTime)
-                local todayReset = serverTime - (d.hour * 3600) - (d.min * 60) - d.sec + (15 * 3600)
-                if serverTime < todayReset then todayReset = todayReset - 86400 end
-                return todayReset
+        local serverTime = C_DateAndTime and C_DateAndTime.GetServerTime and C_DateAndTime.GetServerTime() or time()
+        local lastReset = ST:GetLastResetTime(serverTime)
+        for b, beast in ipairs(ST.BEASTS) do
+            local cb = row.checkboxes[b]
+            if not cb then
+                cb = CreateFrame("CheckButton", nil, content, "UICheckButtonTemplate")
+                cb:SetSize(20, 20)
+                row.checkboxes[b] = cb
             end
-            local skinnedToday = ts and (ts >= GetLastResetFor())
 
-            local cb = CreateFrame("CheckButton", nil, content, "UICheckButtonTemplate")
-            cb:SetSize(20, 20)
+            local x = COL_CHAR + (b - 1) * COL_BEAST + (COL_BEAST / 2) - 8
             cb:SetPoint("TOPLEFT", content, "TOPLEFT", x, y + 2)
+
+            local ts = charData.beasts[beast.id]
+            local skinnedToday = ts and (ts >= lastReset)
             cb:SetChecked(skinnedToday)
 
-            -- Only allow toggling the current character
             if isCurrent then
                 local beastId = beast.id
-                cb:SetScript("OnClick", function(self)
+                cb:SetEnabled(true)
+                cb:SetScript("OnClick", function()
                     ST:ToggleSkinned(beastId)
                 end)
             else
                 cb:SetEnabled(false)
+                cb:SetScript("OnClick", nil)
             end
-
-            table.insert(rowWidgets, cb)
+            cb:Show()
         end
 
-        table.insert(UI.rows, rowWidgets)
+        -- Hide any extra checkboxes if beasts list shrank
+        for b = #ST.BEASTS + 1, #row.checkboxes do
+            row.checkboxes[b]:Hide()
+        end
+
         y = y - ROW_HEIGHT
     end
 
+    -- Hide extra rows if character list shrank
+    for i = #chars + 1, #UI.rows do
+        local row = UI.rows[i]
+        row.charLabel:Hide()
+        for _, cb in ipairs(row.checkboxes) do
+            cb:Hide()
+        end
+    end
+
     -- If no skinner characters yet, show a hint
+    UI.hint = UI.hint or MakeLabel(content, "", 11, "LEFT")
     if #chars == 0 then
-        local hint = MakeLabel(content, C_GREY .. "No skinner characters tracked yet. Log in with a character that has Midnight Skinning." .. C_RESET, 11, "LEFT")
-        hint:SetPoint("TOPLEFT", content, "TOPLEFT", 4, y)
-        hint:SetWidth(FRAME_WIDTH - 60)
-        table.insert(UI.rows, { hint })
+        UI.hint:SetPoint("TOPLEFT", content, "TOPLEFT", 4, y)
+        UI.hint:SetWidth(FRAME_WIDTH - 60)
+        UI.hint:SetText(C_GREY .. "No skinner characters tracked yet. Log in with a character that has Midnight Skinning." .. C_RESET)
+        UI.hint:Show()
         y = y - ROW_HEIGHT
+    else
+        UI.hint:Hide()
     end
 
     return y
@@ -229,52 +260,98 @@ end
 -- Build item count section below beast rows
 -- ---------------------------------------------------------------------------
 local function BuildLootSection(content, startY)
+    UI.loot = UI.loot or {}
+    UI.loot.itemHeaders = UI.loot.itemHeaders or {}
+    UI.loot.rows = UI.loot.rows or {}
+
     -- Divider
-    local line = content:CreateTexture(nil, "BACKGROUND")
-    line:SetColorTexture(0.4, 0.4, 0.4, 0.6)
-    line:SetHeight(1)
-    line:SetPoint("TOPLEFT", content, "TOPLEFT", 2, startY - 8)
-    line:SetWidth(FRAME_WIDTH - 50)
+    if not UI.loot.divider then
+        UI.loot.divider = content:CreateTexture(nil, "BACKGROUND")
+        UI.loot.divider:SetColorTexture(0.4, 0.4, 0.4, 0.6)
+        UI.loot.divider:SetHeight(1)
+        UI.loot.divider:SetWidth(FRAME_WIDTH - 50)
+    end
+    UI.loot.divider:SetPoint("TOPLEFT", content, "TOPLEFT", 2, startY - 8)
+    UI.loot.divider:Show()
 
     local y = startY - 20
 
     -- Section header
-    local header = MakeLabel(content, C_YELLOW .. "Item Counts" .. C_GREY .. "  (session / total)" .. C_RESET, 12, "LEFT")
-    header:SetPoint("TOPLEFT", content, "TOPLEFT", 4, y)
+    if not UI.loot.header then
+        UI.loot.header = MakeLabel(content, "", 12, "LEFT")
+    end
+    UI.loot.header:SetPoint("TOPLEFT", content, "TOPLEFT", 4, y)
+    UI.loot.header:SetText(C_YELLOW .. "Item Counts" .. C_GREY .. "  (session / total)" .. C_RESET)
+    UI.loot.header:Show()
     y = y - ROW_HEIGHT
 
     -- Item name column headers
     for i, item in ipairs(ST.MAJESTIC_ITEMS) do
         local x = COL_CHAR + (i - 1) * COL_ITEM
-        local h = MakeLabel(content, C_YELLOW .. item.name .. C_RESET, 10, "CENTER")
+        local h = UI.loot.itemHeaders[i]
+        if not h then
+            h = MakeLabel(content, "", 10, "CENTER")
+            h:SetWidth(COL_ITEM)
+            UI.loot.itemHeaders[i] = h
+        end
         h:SetPoint("TOPLEFT", content, "TOPLEFT", x, y)
-        h:SetWidth(COL_ITEM)
+        h:SetText(C_YELLOW .. item.name .. C_RESET)
+        h:Show()
+    end
+    for i = #ST.MAJESTIC_ITEMS + 1, #UI.loot.itemHeaders do
+        UI.loot.itemHeaders[i]:Hide()
     end
     y = y - ROW_HEIGHT
 
     -- Per-character rows
     local chars = ST:GetAllCharacters()
-    for _, charEntry in ipairs(chars) do
+    for i, charEntry in ipairs(chars) do
         local charKey  = charEntry.key
         local charData = charEntry.data
+        local row = UI.loot.rows[i]
+        if not row then
+            row = { counts = {} }
+            row.nameLabel = MakeLabel(content, "", 11, "LEFT")
+            row.nameLabel:SetWidth(COL_CHAR - 4)
+            UI.loot.rows[i] = row
+        end
+
         local isCurrent = (charKey == (UnitName("player") .. "-" .. GetRealmName()))
         local classFile = isCurrent and select(2, UnitClass("player")) or charData.class
         local charColor = GetClassColor(classFile) or (isCurrent and C_WHITE or C_GREY)
 
-        local nameLabel = MakeLabel(content, charColor .. charKey .. C_RESET, 11, "LEFT")
-        nameLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 4, y)
-        nameLabel:SetWidth(COL_CHAR - 4)
+        row.nameLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 4, y)
+        row.nameLabel:SetText(charColor .. charKey .. C_RESET)
+        row.nameLabel:Show()
 
-        for i, item in ipairs(ST.MAJESTIC_ITEMS) do
-            local x = COL_CHAR + (i - 1) * COL_ITEM
+        for j, item in ipairs(ST.MAJESTIC_ITEMS) do
+            local x = COL_CHAR + (j - 1) * COL_ITEM
+            local label = row.counts[j]
+            if not label then
+                label = MakeLabel(content, "", 11, "CENTER")
+                label:SetWidth(COL_ITEM)
+                row.counts[j] = label
+            end
             local session = isCurrent and (ST.sessionItems[item.id] or 0) or "-"
             local total   = (charData.items and charData.items[item.id]) or 0
-            local countLabel = MakeLabel(content, C_GREEN .. tostring(session) .. C_GREY .. " / " .. C_WHITE .. tostring(total) .. C_RESET, 11, "CENTER")
-            countLabel:SetPoint("TOPLEFT", content, "TOPLEFT", x, y)
-            countLabel:SetWidth(COL_ITEM)
+            label:SetPoint("TOPLEFT", content, "TOPLEFT", x, y)
+            label:SetText(C_GREEN .. tostring(session) .. C_GREY .. " / " .. C_WHITE .. tostring(total) .. C_RESET)
+            label:Show()
+        end
+        for j = #ST.MAJESTIC_ITEMS + 1, #row.counts do
+            row.counts[j]:Hide()
         end
 
         y = y - ROW_HEIGHT
+    end
+
+    -- Hide extra rows if character list shrank
+    for i = #chars + 1, #UI.loot.rows do
+        local row = UI.loot.rows[i]
+        row.nameLabel:Hide()
+        for _, label in ipairs(row.counts) do
+            label:Hide()
+        end
     end
 
     return y
@@ -285,15 +362,6 @@ end
 -- ---------------------------------------------------------------------------
 function UI:Refresh()
     if not self.frame or not self.frame:IsShown() then return end
-
-    -- Wipe content
-    for _, child in pairs({ self.content:GetChildren() }) do
-        child:Hide()
-    end
-    for _, region in pairs({ self.content:GetRegions() }) do
-        region:Hide()
-    end
-    UI.rows = {}
 
     local y = BuildHeader(self.content)
     y = BuildRows(self.content, y)

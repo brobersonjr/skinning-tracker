@@ -16,11 +16,12 @@ ST.BEASTS = {
     { id = "netherscythe",name = "Netherscythe",zone = "Voidstorm",      coords = "43.13, 82.81", npcId = 247101  },
 }
 
--- Returns the Unix timestamp of the most recent 7 AM PST reset
-local function GetLastResetTime()
+-- Returns the Unix timestamp of the most recent 7 AM PST reset.
+-- Optional serverTime allows callers to reuse a shared time value.
+function ST:GetLastResetTime(serverTime)
     local now = time() -- local time (seconds since epoch)
     -- Use server time if available for accuracy
-    local serverTime = C_DateAndTime and C_DateAndTime.GetServerTime and C_DateAndTime.GetServerTime() or now
+    serverTime = serverTime or (C_DateAndTime and C_DateAndTime.GetServerTime and C_DateAndTime.GetServerTime() or now)
 
     -- Calculate today's reset in UTC: floor to today then add reset hour
     local date = date("!*t", serverTime) -- UTC table
@@ -73,7 +74,7 @@ function ST:HasSkinnedToday(beastId)
     local data = self:GetCharData()
     local ts = data.beasts[beastId]
     if not ts then return false end
-    return ts >= GetLastResetTime()
+    return ts >= self:GetLastResetTime()
 end
 
 -- Mark a beast as skinned right now
@@ -93,7 +94,7 @@ end
 function ST:ToggleSkinned(beastId)
     if self:HasSkinnedToday(beastId) then
         -- Unmark: set timestamp to before last reset
-        self:GetCharData().beasts[beastId] = GetLastResetTime() - 1
+        self:GetCharData().beasts[beastId] = self:GetLastResetTime() - 1
     else
         self:MarkSkinned(beastId)
         return -- MarkSkinned already calls RefreshDataText
@@ -134,7 +135,7 @@ end
 -- Returns time (in seconds) until the next reset
 function ST:GetTimeUntilReset()
     local serverTime = C_DateAndTime and C_DateAndTime.GetServerTime and C_DateAndTime.GetServerTime() or time()
-    local lastReset = GetLastResetTime()
+    local lastReset = self:GetLastResetTime()
     local nextReset = lastReset + 86400
     return nextReset - serverTime
 end
@@ -168,7 +169,12 @@ local function SlashHandler(msg)
         local state = ST:IsMidnightSkinner() and "enabled" or "disabled"
         print("|cff00ff96[SkinningTracker]|r Midnight Skinner " .. state .. " for " .. GetCharKey())
     elseif cmd == "reset" then
-        SkinningTrackerDB[GetCharKey()] = { isMidnightSkinner = false, beasts = {} }
+        SkinningTrackerDB[GetCharKey()] = {
+            isMidnightSkinner = false,
+            beasts = {},
+            class = select(2, UnitClass("player")),
+            items = {},
+        }
         print("|cff00ff96[SkinningTracker]|r Data reset for " .. GetCharKey())
         if ST.UI and ST.UI.Refresh then ST.UI:Refresh() end
     elseif cmd:sub(1, 4) == "mark" then
@@ -206,7 +212,7 @@ SLASH_SKINNINGTRACKER1 = "/skt"
 SlashCmdList["SKINNINGTRACKER"] = SlashHandler
 
 -- ---------------------------------------------------------------------------
--- Auto-detection: listen for Midnight skinning spell (ID 471014)
+-- Auto-detection: listen for Midnight skinning spell (ID 8613)
 -- ---------------------------------------------------------------------------
 local SKINNING_SPELL_ID = 8613
 
@@ -326,8 +332,13 @@ end
 local lootFrame = CreateFrame("Frame")
 lootFrame:RegisterEvent("CHAT_MSG_LOOT")
 lootFrame:SetScript("OnEvent", function(self, event, msg)
-    -- Only track the current player's own loot
-    if not msg:find("^You receive loot:") then return end
+    -- Only track the current player's own loot (locale-safe)
+    if LOOT_ITEM_SELF then
+        local pattern = LOOT_ITEM_SELF:gsub("%%s", "(.+)")
+        if not msg:match(pattern) then return end
+    else
+        if not msg:find("^You receive loot:") then return end
+    end
 
     -- Item links in loot messages contain the item ID: |Hitem:ITEMID:...|h[Name]|h
     local itemId = tonumber(msg:match("|Hitem:(%d+)"))
