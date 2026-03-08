@@ -250,6 +250,7 @@ end
 
 -- Store which beast is being skinned between SPELLCAST_START and SUCCEEDED
 local pendingBeastId = nil
+local pendingInterrupted = false  -- true if the cast was interrupted before CHANNEL_STOP fires
 
 local trackFrame = CreateFrame("Frame")
 trackFrame:RegisterEvent("UNIT_SPELLCAST_START")
@@ -275,12 +276,12 @@ trackFrame:SetScript("OnEvent", function(self, event, unit, castGUID, spellID)
     -- Both regular cast start and channel start capture the target
     if event == "UNIT_SPELLCAST_START" or event == "UNIT_SPELLCAST_CHANNEL_START" then
         pendingBeastId = GetTargetBeastId()
+        pendingInterrupted = false
         if ST.debug then
             print("|cffffff00[SKT Debug]|r Skinning spell detected, pending beast: " .. tostring(pendingBeastId))
         end
 
-    -- Both regular succeeded and channel stop (which fires on successful finish) confirm the skin
-    elseif event == "UNIT_SPELLCAST_SUCCEEDED" or event == "UNIT_SPELLCAST_CHANNEL_STOP" then
+    elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
         if pendingBeastId then
             ST:MarkSkinned(pendingBeastId)
             local beastName = pendingBeastId
@@ -294,7 +295,28 @@ trackFrame:SetScript("OnEvent", function(self, event, unit, castGUID, spellID)
             pendingBeastId = nil
         end
 
+    -- CHANNEL_STOP fires on both success and interruption.
+    -- Defer by one frame so INTERRUPTED (if it follows) can set pendingInterrupted first.
+    elseif event == "UNIT_SPELLCAST_CHANNEL_STOP" then
+        local beastId = pendingBeastId
+        pendingBeastId = nil
+        C_Timer.After(0, function()
+            if beastId and not pendingInterrupted then
+                ST:MarkSkinned(beastId)
+                local beastName = beastId
+                for _, beast in ipairs(ST.BEASTS) do
+                    if beast.id == beastId then
+                        beastName = beast.name
+                        break
+                    end
+                end
+                print("|cff00ff96[SkinningTracker]|r Auto-tracked: |cffffff00" .. beastName .. "|r skinned!")
+            end
+            pendingInterrupted = false
+        end)
+
     elseif event == "UNIT_SPELLCAST_FAILED" or event == "UNIT_SPELLCAST_INTERRUPTED" then
+        pendingInterrupted = true
         pendingBeastId = nil
     end
 end)
