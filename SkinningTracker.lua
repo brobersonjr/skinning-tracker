@@ -252,6 +252,9 @@ end
 local pendingBeastId = nil
 local pendingInterrupted = false  -- true if the cast was interrupted before CHANNEL_STOP fires
 
+-- Forward declaration: defined after PlayNoMajestic below
+local AutoSkinBeast
+
 local trackFrame = CreateFrame("Frame")
 trackFrame:RegisterEvent("UNIT_SPELLCAST_START")
 trackFrame:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
@@ -283,15 +286,7 @@ trackFrame:SetScript("OnEvent", function(self, event, unit, castGUID, spellID)
 
     elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
         if pendingBeastId then
-            ST:MarkSkinned(pendingBeastId)
-            local beastName = pendingBeastId
-            for _, beast in ipairs(ST.BEASTS) do
-                if beast.id == pendingBeastId then
-                    beastName = beast.name
-                    break
-                end
-            end
-            print("|cff00ff96[SkinningTracker]|r Auto-tracked: |cffffff00" .. beastName .. "|r skinned!")
+            AutoSkinBeast(pendingBeastId)
             pendingBeastId = nil
         end
 
@@ -302,15 +297,7 @@ trackFrame:SetScript("OnEvent", function(self, event, unit, castGUID, spellID)
         pendingBeastId = nil
         C_Timer.After(0, function()
             if beastId and not pendingInterrupted then
-                ST:MarkSkinned(beastId)
-                local beastName = beastId
-                for _, beast in ipairs(ST.BEASTS) do
-                    if beast.id == beastId then
-                        beastName = beast.name
-                        break
-                    end
-                end
-                print("|cff00ff96[SkinningTracker]|r Auto-tracked: |cffffff00" .. beastName .. "|r skinned!")
+                AutoSkinBeast(beastId)
             end
             pendingInterrupted = false
         end)
@@ -338,12 +325,42 @@ for _, item in ipairs(ST.MAJESTIC_ITEMS) do
     majesticLookup[item.id] = item.name
 end
 
--- Play a money sound on Majestic item loot.
+-- Play a positive sound on Majestic item loot.
+-- TODO: replace placeholder (IG_BACKPACK_OPEN=862) with a proper reward sound once confirmed.
 local function PlayChaChing()
-    if ST.debug then
-        print("|cffffff00[SKT Debug]|r PlayChaChing: attempting PlaySoundFile")
+    if SOUNDKIT and SOUNDKIT.IG_BACKPACK_OPEN then
+        PlaySound(SOUNDKIT.IG_BACKPACK_OPEN, "Master")
     end
-    PlaySoundFile("Sound\\Interface\\MoneyFrameOpen.wav", "Master")
+end
+
+-- Play a negative sound when no Majestic item drops from a skinned beast.
+-- TODO: replace placeholder (IG_MAINMENU_OPEN=850) with a proper negative sound once confirmed.
+local function PlayNoMajestic()
+    if SOUNDKIT and SOUNDKIT.IG_MAINMENU_OPEN then
+        PlaySound(SOUNDKIT.IG_MAINMENU_OPEN, "Master")
+    end
+end
+
+-- Token used to cancel the no-majestic timer if a Majestic item is looted in time.
+local majesticExpectedToken = nil
+
+-- Called when a beast is auto-skinned: marks it and starts a 3s window waiting for Majestic loot.
+AutoSkinBeast = function(beastId)
+    ST:MarkSkinned(beastId)
+    local beastName = beastId
+    for _, beast in ipairs(ST.BEASTS) do
+        if beast.id == beastId then beastName = beast.name; break end
+    end
+    print("|cff00ff96[SkinningTracker]|r Auto-tracked: |cffffff00" .. beastName .. "|r skinned!")
+
+    local token = (majesticExpectedToken or 0) + 1
+    majesticExpectedToken = token
+    C_Timer.After(3, function()
+        if majesticExpectedToken == token then
+            majesticExpectedToken = nil
+            PlayNoMajestic()
+        end
+    end)
 end
 
 local lootFrame = CreateFrame("Frame")
@@ -389,6 +406,7 @@ lootFrame:SetScript("OnEvent", function(self, event, msg)
             if ST.UI and ST.UI.Refresh then ST.UI:Refresh() end
             if ST.RefreshDataText then ST:RefreshDataText() end
         end
+        majesticExpectedToken = nil  -- cancel the no-majestic timer
         print("|cff00ff96[SkinningTracker]|r |cffffff00" .. itemName .. "|r x" .. qty .. " looted!")
         PlayChaChing()
     end

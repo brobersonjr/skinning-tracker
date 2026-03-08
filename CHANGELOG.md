@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.6 - 2026-03-08
+- Add negative sound when a skinned beast yields no Majestic item (3-second window after skinning).
+- Sound placeholders in use pending in-game confirmation of working sound IDs.
+
 ## 1.3.5 - 2026-03-08
 - Fix loot sound: SOUNDKIT.IG_TREASURE_OPEN does not exist in Midnight; switched to PlaySoundFile with the classic MoneyFrameOpen.wav.
 
