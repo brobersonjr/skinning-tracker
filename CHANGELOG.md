@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.3.8 - 2026-03-09
+- Fix Majestic item counter so stacked loot messages correctly increment by the full quantity.
+
 ## 1.3.7 - 2026-03-08
 - Simplify Majestic loot audio to positive-only behavior (no negative "no drop" sound).
 - Add `/skt testsound` and `/skt testsound <soundId>` for in-game sound verification.
@@ -27,3 +30,4 @@
 - Use shared reset-time logic across UI and core.
 - Make loot detection locale-safe.
 - Clarify skinning spell ID comment.
+
