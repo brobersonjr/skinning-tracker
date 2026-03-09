@@ -391,7 +391,7 @@ lootFrame:SetScript("OnEvent", function(self, event, msg)
     end
 
     if itemId and majesticLookup[itemId] then
-        local qty = tonumber(msg:match("x(%d+)")) or tonumber(msg:match(" x(%d+)")) or 1
+        local qty = tonumber(msg:match(" x(%d+)")) or 1
         local itemName = majesticLookup[itemId]
         local data = ST:GetCharData()
         if data then
@@ -428,4 +428,3 @@ loadFrame:SetScript("OnEvent", function(self, event, arg1)
         end
     end
 end)
-
