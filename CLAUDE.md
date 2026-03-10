@@ -71,3 +71,9 @@ Current confirmed working Majestic loot alert:
 - Simplified to positive-only Majestic loot sound per user requirement.
 - Added `/skt testsound` and `/skt testsound <soundId>` to validate audio quickly in-game.
 - Confirmed user-selected alert sound ID `891`; removed fallback chain and negative-sound logic.
+
+### [2026-03-10] Claude Sonnet 4.6
+- Fixed ElvUI data text tooltip not showing on hover (`SkinningTrackerElvUI.lua`).
+- Root cause: `DT.tooltip:ClearLines()` was called without a nil check; if `DT.tooltip` is absent in this ElvUI build, it silently errors and nothing shows.
+- Fix: use `DT.tooltip` (with `SmartAnchorTo`) when available; fall back to `GameTooltip` (with `SetOwner`) otherwise.
+- Removed `SetMinimumWidth` call — ElvUI-only extension, would error on the GameTooltip fallback path.

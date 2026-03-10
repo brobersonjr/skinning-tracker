@@ -59,40 +59,48 @@ end
 
 local function OnEnter(self)
     if not DT then return end
-    DT.tooltip:ClearLines()
-    DT.tooltip:SmartAnchorTo(self)
-    DT.tooltip:SetMinimumWidth(200)
-    DT.tooltip:AddLine("Skinning Tracker", 0, 1, 0.59)
+    local tt = DT.tooltip
+    if tt then
+        tt:SmartAnchorTo(self)
+        tt:ClearLines()
+    else
+        tt = GameTooltip
+        tt:SetOwner(self, "ANCHOR_BOTTOMLEFT")
+        tt:ClearLines()
+    end
+
+    tt:AddLine("Skinning Tracker", 0, 1, 0.59)
 
     if not ST or not ST.GetCharData then
-        DT.tooltip:Show()
+        tt:Show()
         return
     end
 
     local data = ST:GetCharData()
     if not data or not data.isMidnightSkinner then
-        DT.tooltip:AddLine("Not a Midnight Skinner", 1, 1, 1)
-        DT.tooltip:Show()
+        tt:AddLine("Not a Midnight Skinner", 1, 1, 1)
+        tt:Show()
         return
     end
 
-    DT.tooltip:AddLine(" ")
+    tt:AddLine(" ")
     for _, beast in ipairs(ST.BEASTS) do
         local skinned = ST:HasSkinnedToday(beast.id)
         local r, g, b = skinned and 0 or 1, skinned and 1 or 0.27, skinned and 0.59 or 0.27
         local status = skinned and "Done" or "Remaining"
-        DT.tooltip:AddDoubleLine(beast.name, status, 1, 1, 1, r, g, b)
+        tt:AddDoubleLine(beast.name, status, 1, 1, 1, r, g, b)
     end
 
-    DT.tooltip:AddLine(" ")
-    DT.tooltip:AddLine("Reset in: " .. ST:GetResetCountdown(), 1, 0.6, 0)
-    DT.tooltip:AddLine("Click to open Skinning Tracker", 0.5, 0.5, 0.5)
-    DT.tooltip:Show()
+    tt:AddLine(" ")
+    tt:AddLine("Reset in: " .. ST:GetResetCountdown(), 1, 0.6, 0)
+    tt:AddLine("Click to open Skinning Tracker", 0.5, 0.5, 0.5)
+    tt:Show()
 end
 
 local function OnLeave()
     if not DT then return end
-    DT.tooltip:Hide()
+    local tt = DT.tooltip or GameTooltip
+    tt:Hide()
 end
 
 local function InitElvUI()

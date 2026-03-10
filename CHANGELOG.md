@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.3.9 - 2026-03-10
+- Fix ElvUI data text tooltip not showing on hover; fall back to GameTooltip when DT.tooltip is unavailable.
+
 ## 1.3.8 - 2026-03-09
 - Fix Majestic item counter so stacked loot messages correctly increment by the full quantity.
 
