@@ -72,6 +72,12 @@ Current confirmed working Majestic loot alert:
 - Added `/skt testsound` and `/skt testsound <soundId>` to validate audio quickly in-game.
 - Confirmed user-selected alert sound ID `891`; removed fallback chain and negative-sound logic.
 
+### [2026-03-14] Claude Sonnet 4.6
+- Fixed "secret string" taint error (`attempt to perform string conversion on a secret string value`) when skinning in delves.
+- Root cause: `UnitGUID("target")` returns a protected secret string in delves; passing it to `strsplit` is blocked by WoW's security model.
+- Fix: wrapped `strsplit` call in `pcall` inside `GetNPCIDFromGUID` and the debug block. Both return `nil` on failure, allowing the name-based fallback to proceed silently.
+- Released as 1.4.0.
+
 ### [2026-03-10] Claude Sonnet 4.6
 - Fixed ElvUI data text tooltip not showing on hover (`SkinningTrackerElvUI.lua`).
 - Root cause: `DT.tooltip:ClearLines()` was called without a nil check; if `DT.tooltip` is absent in this ElvUI build, it silently errors and nothing shows.

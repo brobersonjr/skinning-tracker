@@ -243,7 +243,10 @@ end
 -- GUID format: "Creature-0-REALM-SERVER-INSTANCE-NPCID-SPAWNUID"
 local function GetNPCIDFromGUID(guid)
     if not guid then return nil end
-    return tonumber((select(6, strsplit("-", guid))))
+    local ok, result = pcall(function()
+        return tonumber((select(6, strsplit("-", guid))))
+    end)
+    return ok and result or nil
 end
 
 -- Resolve which Renowned Beast (if any) is currently targeted.
@@ -281,7 +284,8 @@ trackFrame:SetScript("OnEvent", function(self, event, unit, castGUID, spellID)
     -- Debug mode: print all player spellcasts to help diagnose issues
     if ST.debug then
         local guid = UnitGUID("target")
-        local npcId = guid and tonumber((select(6, strsplit("-", guid)))) or "nil"
+        local ok, npcIdRaw = pcall(function() return guid and tonumber((select(6, strsplit("-", guid)))) end)
+        local npcId = (ok and npcIdRaw) or "nil"
         local name  = UnitName("target") or "nil"
         print(string.format("|cffffff00[SKT Debug]|r %s spellID=%s target=%s npcId=%s name=%s",
             event, tostring(spellID), tostring(guid), tostring(npcId), name))

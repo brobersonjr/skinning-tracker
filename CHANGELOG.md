@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.4.0 - 2026-03-14
+- Fix "secret string" taint error when skinning in delves; GUID string operations are now protected with pcall and gracefully return nil instead of erroring.
+
 ## 1.3.9 - 2026-03-10
 - Fix ElvUI data text tooltip not showing on hover; fall back to GameTooltip when DT.tooltip is unavailable.
 
