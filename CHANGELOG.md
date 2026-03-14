@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.4.1 - 2026-03-14
+- Fix second secret string taint path in delves: UnitName("target") can also be a protected string; name lookup now uses pcall-guarded strlower instead of name:lower().
+
 ## 1.4.0 - 2026-03-14
 - Fix "secret string" taint error when skinning in delves; GUID string operations are now protected with pcall and gracefully return nil instead of erroring.
 

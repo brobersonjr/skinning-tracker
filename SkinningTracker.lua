@@ -239,6 +239,18 @@ for _, beast in ipairs(ST.BEASTS) do
     beastNameLookup[beast.name:lower()] = beast.id
 end
 
+local function SafeLowerString(value)
+    if not value then return nil end
+    local ok, lowered = pcall(strlower, value)
+    return ok and lowered or nil
+end
+
+local function SafeDebugString(value)
+    if value == nil then return "nil" end
+    local ok, text = pcall(tostring, value)
+    return ok and text or "<secret>"
+end
+
 -- Extract the NPC ID (decimal) from a WoW creature GUID.
 -- GUID format: "Creature-0-REALM-SERVER-INSTANCE-NPCID-SPAWNUID"
 local function GetNPCIDFromGUID(guid)
@@ -258,8 +270,9 @@ local function GetTargetBeastId()
         return beastNpcIdLookup[npcId]
     end
     local name = UnitName("target")
-    if name then
-        return beastNameLookup[name:lower()]
+    local loweredName = SafeLowerString(name)
+    if loweredName then
+        return beastNameLookup[loweredName]
     end
     return nil
 end
@@ -286,9 +299,9 @@ trackFrame:SetScript("OnEvent", function(self, event, unit, castGUID, spellID)
         local guid = UnitGUID("target")
         local ok, npcIdRaw = pcall(function() return guid and tonumber((select(6, strsplit("-", guid)))) end)
         local npcId = (ok and npcIdRaw) or "nil"
-        local name  = UnitName("target") or "nil"
+        local name  = SafeDebugString(UnitName("target"))
         print(string.format("|cffffff00[SKT Debug]|r %s spellID=%s target=%s npcId=%s name=%s",
-            event, tostring(spellID), tostring(guid), tostring(npcId), name))
+            event, tostring(spellID), SafeDebugString(guid), tostring(npcId), name))
     end
 
     if spellID ~= SKINNING_SPELL_ID then return end

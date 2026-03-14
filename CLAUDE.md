@@ -78,6 +78,12 @@ Current confirmed working Majestic loot alert:
 - Fix: wrapped `strsplit` call in `pcall` inside `GetNPCIDFromGUID` and the debug block. Both return `nil` on failure, allowing the name-based fallback to proceed silently.
 - Released as 1.4.0.
 
+### [2026-03-14] GPT-5 Codex
+- Fixed a second secret-string taint path in `SkinningTracker.lua` after the GUID guard landed.
+- Root cause: `UnitName("target")` can also be a protected secret string in delves; calling `name:lower()` triggered `attempt to index local 'name' (a secret string value tainted by 'SkinningTracker')`.
+- Fix: added taint-safe helpers for lowercasing and debug formatting. `GetTargetBeastId()` now lowercases target names via `pcall` and skips the fallback when the name is protected; debug logging now formats protected `guid`/`name` values safely.
+- Impact: delve skinning no longer errors on either the GUID parse path or the target-name fallback path. Detection still prefers NPC ID and only uses name fallback when WoW returns a normal string.
+
 ### [2026-03-10] Claude Sonnet 4.6
 - Fixed ElvUI data text tooltip not showing on hover (`SkinningTrackerElvUI.lua`).
 - Root cause: `DT.tooltip:ClearLines()` was called without a nil check; if `DT.tooltip` is absent in this ElvUI build, it silently errors and nothing shows.
