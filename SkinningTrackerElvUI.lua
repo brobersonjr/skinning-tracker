@@ -58,49 +58,58 @@ local function OnClick(self, btn)
 end
 
 local function OnEnter(self)
-    if not DT then return end
-    local tt = DT.tooltip
-    if tt then
-        tt:SmartAnchorTo(self)
-        tt:ClearLines()
-    else
-        tt = GameTooltip
-        tt:SetOwner(self, "ANCHOR_BOTTOMLEFT")
-        tt:ClearLines()
-    end
-
-    tt:AddLine("Skinning Tracker", 0, 1, 0.59)
+    GameTooltip:SetOwner(self, "ANCHOR_BOTTOMLEFT")
+    GameTooltip:ClearLines()
+    GameTooltip:AddLine("Skinning Tracker", 0, 1, 0.59)
 
     if not ST or not ST.GetCharData then
-        tt:Show()
+        GameTooltip:Show()
         return
     end
 
     local data = ST:GetCharData()
     if not data or not data.isMidnightSkinner then
-        tt:AddLine("Not a Midnight Skinner", 1, 1, 1)
-        tt:Show()
+        GameTooltip:AddLine("Not a Midnight Skinner", 1, 1, 1)
+        GameTooltip:Show()
         return
     end
 
-    tt:AddLine(" ")
+    -- Beast progress
+    GameTooltip:AddLine(" ")
     for _, beast in ipairs(ST.BEASTS) do
         local skinned = ST:HasSkinnedToday(beast.id)
         local r, g, b = skinned and 0 or 1, skinned and 1 or 0.27, skinned and 0.59 or 0.27
         local status = skinned and "Done" or "Remaining"
-        tt:AddDoubleLine(beast.name, status, 1, 1, 1, r, g, b)
+        GameTooltip:AddDoubleLine(beast.name, status, 1, 1, 1, r, g, b)
     end
 
-    tt:AddLine(" ")
-    tt:AddLine("Reset in: " .. ST:GetResetCountdown(), 1, 0.6, 0)
-    tt:AddLine("Click to open Skinning Tracker", 0.5, 0.5, 0.5)
-    tt:Show()
+    -- Majestic item totals (lifetime, per character)
+    if ST.MAJESTIC_ITEMS and data.items then
+        local anyMajestic = false
+        for _, item in ipairs(ST.MAJESTIC_ITEMS) do
+            if (data.items[item.id] or 0) > 0 then
+                anyMajestic = true
+                break
+            end
+        end
+        if anyMajestic then
+            GameTooltip:AddLine(" ")
+            GameTooltip:AddLine("Majestic Items:", 1, 0.8, 0)
+            for _, item in ipairs(ST.MAJESTIC_ITEMS) do
+                local qty = data.items[item.id] or 0
+                GameTooltip:AddDoubleLine(item.name, "x" .. qty, 1, 1, 1, qty > 0 and 1 or 0.5, qty > 0 and 1 or 0.5, qty > 0 and 0 or 0.5)
+            end
+        end
+    end
+
+    GameTooltip:AddLine(" ")
+    GameTooltip:AddLine("Reset in: " .. ST:GetResetCountdown(), 1, 0.6, 0)
+    GameTooltip:AddLine("Click to open Skinning Tracker", 0.5, 0.5, 0.5)
+    GameTooltip:Show()
 end
 
 local function OnLeave()
-    if not DT then return end
-    local tt = DT.tooltip or GameTooltip
-    tt:Hide()
+    GameTooltip:Hide()
 end
 
 local function InitElvUI()
