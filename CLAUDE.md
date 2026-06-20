@@ -89,3 +89,9 @@ Current confirmed working Majestic loot alert:
 - Root cause: `DT.tooltip:ClearLines()` was called without a nil check; if `DT.tooltip` is absent in this ElvUI build, it silently errors and nothing shows.
 - Fix: use `DT.tooltip` (with `SmartAnchorTo`) when available; fall back to `GameTooltip` (with `SetOwner`) otherwise.
 - Removed `SetMinimumWidth` call — ElvUI-only extension, would error on the GameTooltip fallback path.
+
+### [2026-06-19] Antigravity
+- Updated interface TOC version to 120007 to support World of Warcraft patch 12.0.7.
+- Bumped version from 1.4.1 to 1.4.2 in TOC files and changelog.
+- Packaged and committed the v1.4.0, v1.4.1, and v1.4.2 release ZIP files.
+
