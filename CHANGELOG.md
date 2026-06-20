@@ -2,6 +2,8 @@
 
 ## 1.4.2 - 2026-06-19
 - Update Interface version to 120007 for World of Warcraft patch 12.0.7.
+- Fix ElvUI data text tooltip not showing on mouseover; replaced unreliable DT.tooltip with GameTooltip directly.
+- Add Majestic Items section to the hover tooltip showing lifetime looted counts per item.
 
 ## 1.4.1 - 2026-03-14
 - Fix second secret string taint path in delves: UnitName("target") can also be a protected string; name lookup now uses pcall-guarded strlower instead of name:lower().
