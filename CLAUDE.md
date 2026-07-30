@@ -120,14 +120,16 @@ Triaged a Gemini review of the repo. Accepted five items, **rejected one**, skip
 - **Soft-target detection.** `GetTargetBeastId()` now checks `target` then `softinteract`. All NPC-ID checks run across both units before any name fallback, so a name match on one unit can never beat an ID match on the other. Added `SafeUnitGUID`/`SafeUnitName` pcall wrappers, matching the file's existing delve-taint defensiveness — `softinteract` is also not guaranteed valid on every client.
 - **`IsSpellKnown` hardening.** Wrapped in `IsSkinningKnown()`. **`IsSpellKnown` stays first on purpose** — it is the path verified in-game. The review suggested putting `C_Spell.IsSpellKnown`/`IsPlayerSpell` ahead of it; that would swap a confirmed check for an unverified one, and they are not exact synonyms for profession spells. Written as explicit branches, not a candidate table: a nil first entry would leave a hole and `ipairs` would stop before reaching any fallback.
 - **Debug visibility for rejected loot.** The gate returned before the debug print, so `/skt debug` was silent about messages it ignored — which made "no drop" and "message not recognised" indistinguishable, the exact question being investigated. Single rejection point now logs.
-- **ElvUI multi-panel.** `dtFrame` single reference replaced with a `dtFrames` set; `RefreshDataText` iterates.
+- **ElvUI multi-panel.** `dtFrame` single reference replaced with `dtFrames`, mapping each panel to **the exact string we last wrote there**. `RefreshDataText` iterates and updates only panels that still show that string, dropping any that do not.
+
+  **Do not "simplify" this back to a plain set.** ElvUI reuses panel frames: assign a slot to a different datatext and the same frame object goes to that datatext. Holding the reference forever would let the 30s ticker overwrite whatever now owns the slot — caught in PR #5 review. The stored-string comparison is what lets us release a panel without reaching into ElvUI internals (which vary by build) to detect reassignment. Clearing keys mid-`pairs` is well-defined in Lua; only adding new ones would not be, and `UpdateText` only rewrites keys already present.
 - **`ST:GetCharKey()`** exposed; the two inline rebuilds in the UI now use it.
 
 #### Skipped
 - Migrating `.items` for all characters in `InitDB()`. The review conceded it is harmless (the UI guards with `charData.items and ...`), and `manualOverride`/`autoDetected` are lazily populated by the same design. Touching every character's saved data for no behavioural gain is not worth it.
 - The bottom-bar toggle button. Owner does not want it, so the stale comment and the unused `MakeButton` helper were removed instead. Note a UI toggle would write `manualOverride`, permanently pinning that character against auto-detection — not obviously what a button-clicker would expect.
 
-**Verification:** 9/9 new tests on `IsSkinningKnown` (including the `ipairs`-hole trap and a throwing primary), 9/9 loot-gate tests re-run with added AH-purchase cases, 26/26 reset tests as regression. Soft-target and ElvUI multi-panel need the client.
+**Verification:** 9/9 new tests on `IsSkinningKnown` (including the `ipairs`-hole trap and a throwing primary), 9/9 loot-gate tests re-run with added AH-purchase cases, 13/13 on the ElvUI datatext including the panel-reassignment case, 26/26 reset tests as regression. The ElvUI prefix is load-time clean too, so the datatext logic runs in the VM against a fake panel. Soft-target still needs the client.
 
 ### [2026-07-29] Claude Opus 5 (third pass, 1.4.5)
 Cleared the last three findings from the review. **The review backlog is now empty.**

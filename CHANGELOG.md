@@ -4,7 +4,7 @@
 - Detect skinning through soft-target interact, so skinning with an interact keybind without hard-targeting the corpse is still tracked.
 - Harden the skinning spell check against a future client removing the `IsSpellKnown` global; behaviour on current clients is unchanged.
 - `/skt debug` now also reports loot messages that were ignored, making it possible to tell "no item was received" apart from "the message was not recognised".
-- Refresh every ElvUI datatext panel, not just the most recently updated one, for users who place the datatext on more than one panel.
+- Refresh every ElvUI datatext panel, not just the most recently updated one, for users who place the datatext on more than one panel. Panels reassigned to a different datatext are released, so the tracker never overwrites a slot it no longer owns.
 - Internal cleanup: shared `ST:GetCharKey()` instead of rebuilding the character key inline, and removed an unused button helper.
 
 ## 1.4.5 - 2026-07-29

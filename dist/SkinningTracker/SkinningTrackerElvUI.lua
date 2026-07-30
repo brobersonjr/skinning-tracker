@@ -11,18 +11,25 @@ local C_ORANGE = "|cffff9900"
 local C_GREY   = "|cff888888"
 local C_RESET  = "|r"
 
--- Every datatext frame ElvUI has handed us, as a set. ElvUI allows the same
--- datatext on more than one panel, and a single reference would only ever
--- refresh whichever panel fired its event last.
+-- Panels ElvUI has handed us, mapped to the exact string we last wrote there.
+-- ElvUI allows the same datatext on several panels, so a single reference would
+-- only ever refresh whichever one fired its event last.
+--
+-- The stored string is what makes releasing a panel possible. ElvUI reuses these
+-- frames: assign a slot to a different datatext and the same frame object is
+-- handed to that datatext instead. Holding the reference forever would let our
+-- ticker overwrite whatever now owns the slot. Rather than reach into ElvUI
+-- internals to detect that, we simply check whether the panel still shows the
+-- text we put there, and let go of it if it does not.
 local dtFrames = {}
 local DT      -- ElvUI DataTexts module, set in InitElvUI
 
-local function UpdateText(self)
-    if not ST or not ST.GetCharData then return end
+-- Builds the datatext string, or nil when there is nothing to show
+local function BuildText()
+    if not ST or not ST.GetCharData then return nil end
     local data = ST:GetCharData()
     if not data or not data.isMidnightSkinner then
-        self.text:SetText(C_GREY .. "Not a Skinner" .. C_RESET)
-        return
+        return C_GREY .. "Not a Skinner" .. C_RESET
     end
     local total = #ST.BEASTS
     local done = 0
@@ -33,23 +40,42 @@ local function UpdateText(self)
     end
     local remaining = total - done
     if remaining == 0 then
-        self.text:SetText(C_GREEN .. "Skins: Done!" .. C_RESET)
-    else
-        self.text:SetText(C_YELLOW .. "Skins: " .. remaining .. "/" .. total .. C_RESET)
+        return C_GREEN .. "Skins: Done!" .. C_RESET
     end
+    return C_YELLOW .. "Skins: " .. remaining .. "/" .. total .. C_RESET
+end
+
+local function UpdateText(self)
+    local text = BuildText()
+    if not text or not self.text then return end
+    self.text:SetText(text)
+    dtFrames[self] = text -- remember exactly what we wrote
+end
+
+-- True while the panel still displays the string we last wrote to it
+local function StillOurs(frame, lastText)
+    if not frame.text or not frame.text.GetText then return false end
+    local ok, current = pcall(frame.text.GetText, frame.text)
+    return ok and current == lastText
 end
 
 -- Called by ST:MarkSkinned / ST:ToggleSkinned and the UI ticker to keep every
 -- datatext panel live
 function ST:RefreshDataText()
-    for frame in pairs(dtFrames) do
-        UpdateText(frame)
+    -- Clearing existing keys during traversal is well-defined in Lua; only
+    -- adding new ones would be, and UpdateText only ever rewrites keys already
+    -- present here.
+    for frame, lastText in pairs(dtFrames) do
+        if StillOurs(frame, lastText) then
+            UpdateText(frame)
+        else
+            dtFrames[frame] = nil -- ElvUI gave this slot to something else
+        end
     end
 end
 
 local function OnEvent(self, event, ...)
-    dtFrames[self] = true -- remember this panel for RefreshDataText
-    UpdateText(self)
+    UpdateText(self) -- also registers the panel for RefreshDataText
 end
 
 local function OnClick(self, btn)
