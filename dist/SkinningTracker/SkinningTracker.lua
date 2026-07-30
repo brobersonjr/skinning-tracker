@@ -78,6 +78,12 @@ local function GetCharKey()
     return UnitName("player") .. "-" .. GetRealmName()
 end
 
+-- Public accessor so the UI and any other file share this one definition
+-- instead of rebuilding the key inline.
+function ST:GetCharKey()
+    return GetCharKey()
+end
+
 -- Initialize SavedVariables and per-character data
 local function InitDB()
     if not SkinningTrackerDB then
@@ -282,6 +288,37 @@ SlashCmdList["SKINNINGTRACKER"] = SlashHandler
 -- ---------------------------------------------------------------------------
 local SKINNING_SPELL_ID = 8613
 
+-- Is the skinning spell known by this character?
+--
+-- IsSpellKnown is the path confirmed working on the current client, so it stays
+-- FIRST on purpose. The alternatives exist only so that a future client which
+-- removes the global degrades instead of erroring on every SPELLS_CHANGED.
+-- Do not promote them above IsSpellKnown: they are not exact synonyms for
+-- profession spells, and reordering would swap a verified check for an
+-- unverified one. Returning false when nothing is callable is safe, because
+-- ApplySkinnerDetection never clears an existing true.
+-- Listed as explicit branches rather than a table: a nil first entry would put
+-- a hole in the array and ipairs would stop before reaching any fallback.
+local function IsSkinningKnown()
+    local function try(fn)
+        if type(fn) ~= "function" then return nil end
+        local ok, known = pcall(fn, SKINNING_SPELL_ID)
+        if not ok then return nil end
+        return known and true or false
+    end
+
+    local known = try(IsSpellKnown)
+    if known ~= nil then return known end
+
+    known = try(C_Spell and C_Spell.IsSpellKnown)
+    if known ~= nil then return known end
+
+    known = try(IsPlayerSpell)
+    if known ~= nil then return known end
+
+    return false
+end
+
 -- Apply skinning auto-detection to the current character.
 -- Two rules keep characters from silently disappearing from the tracker:
 --   1. An explicit /skt toggle (manualOverride) always wins over detection.
@@ -294,7 +331,7 @@ local function ApplySkinnerDetection()
     if not data then return end
 
     local before = data.isMidnightSkinner
-    data.autoDetected = IsSpellKnown(SKINNING_SPELL_ID) and true or false
+    data.autoDetected = IsSkinningKnown()
 
     if data.manualOverride ~= nil then
         data.isMidnightSkinner = data.manualOverride
@@ -340,18 +377,39 @@ local function GetNPCIDFromGUID(guid)
     return ok and result or nil
 end
 
+-- Unit tokens to inspect, in priority order. "softinteract" covers players who
+-- skin with an interact keybind or soft-target interact, where the corpse is
+-- never made the hard target and UnitGUID("target") is nil or something else.
+local SKIN_UNITS = { "target", "softinteract" }
+
+-- Both wrapped: "softinteract" is not guaranteed to be a valid token on every
+-- client, and these calls can return protected values inside delves.
+local function SafeUnitGUID(unit)
+    local ok, guid = pcall(UnitGUID, unit)
+    return ok and guid or nil
+end
+
+local function SafeUnitName(unit)
+    local ok, name = pcall(UnitName, unit)
+    return ok and name or nil
+end
+
 -- Resolve which Renowned Beast (if any) is currently targeted.
 -- Prefers NPC ID match; falls back to name match for beasts without IDs yet.
 local function GetTargetBeastId()
-    local guid = UnitGUID("target")
-    local npcId = GetNPCIDFromGUID(guid)
-    if npcId and beastNpcIdLookup[npcId] then
-        return beastNpcIdLookup[npcId]
+    -- Try NPC ID across every unit first: it is the reliable signal, so a name
+    -- match on one unit must never win over an ID match on another.
+    for _, unit in ipairs(SKIN_UNITS) do
+        local npcId = GetNPCIDFromGUID(SafeUnitGUID(unit))
+        if npcId and beastNpcIdLookup[npcId] then
+            return beastNpcIdLookup[npcId]
+        end
     end
-    local name = UnitName("target")
-    local loweredName = SafeLowerString(name)
-    if loweredName then
-        return beastNameLookup[loweredName]
+    for _, unit in ipairs(SKIN_UNITS) do
+        local loweredName = SafeLowerString(SafeUnitName(unit))
+        if loweredName and beastNameLookup[loweredName] then
+            return beastNameLookup[loweredName]
+        end
     end
     return nil
 end
@@ -488,9 +546,21 @@ lootFrame:SetScript("OnEvent", function(self, event, msg)
         qty = tonumber(count)
     end
     if not qty then
+        local isOwnLoot
         if LOOT_SELF_SINGLE then
-            if not msg:match(LOOT_SELF_SINGLE) then return end
-        elseif not msg:find("^You receive loot:") then
+            isOwnLoot = msg:match(LOOT_SELF_SINGLE) ~= nil
+        else
+            isOwnLoot = msg:find("^You receive loot:") ~= nil
+        end
+        if not isOwnLoot then
+            -- Only "You receive loot:" counts, and that is deliberate.
+            -- "You receive item:" (LOOT_ITEM_PUSHED_SELF) covers auction house
+            -- purchases, mail, crafting and quest rewards. Counting those would
+            -- inflate skinning yield with Majestic items the player bought
+            -- rather than skinned. Do not widen this gate.
+            if ST.debug then
+                print("|cffffff00[SKT Debug]|r LOOT ignored (not own loot): " .. SafeDebugString(msg))
+            end
             return
         end
         qty = 1

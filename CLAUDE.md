@@ -36,6 +36,25 @@ A third-party agent flagged 6 issues. Assessment below — do not act on dismiss
 | 5 | Hardcoded font `FRIZQT__.TTF` | **Dismiss** | This is the standard WoW font, always present |
 | 6 | Loot localization | **Already fixed** | 1.3.3 uses `LOOT_ITEM_SELF` / `LOOT_ITEM_SELF_MULTIPLE` with proper escaping |
 
+## In-Game Verification Status (as of 2026-07-29, owner-confirmed)
+Earlier entries below were written before anything had been run in the client. Current state:
+
+| Behaviour | Status |
+|-----------|--------|
+| Addon loads, no Lua errors | ✅ confirmed |
+| Auto-track on skinning a Renowned Beast | ✅ confirmed |
+| Skinner auto-detection / character list populated | ✅ confirmed |
+| SavedVariables survive `PLAYER_LOGIN`-only init (1.4.5) | ✅ confirmed — 7 alts intact |
+| Window position persists across sessions (1.4.5) | ✅ confirmed |
+| Escape closes the window (1.4.5) | ✅ confirmed |
+| Reset countdown | ✅ plausible — showed 12h02m against a 15:00 UTC boundary. Note US realms cannot distinguish the API path from the old fixed-hour fallback, since both agree |
+| Majestic loot counter increments (1.4.4) | ⏳ **unverified** — needs a drop |
+| ElvUI datatext (all of it) | ⏳ unverified — owner does not use ElvUI, guildie to test |
+| Datatext refresh across daily reset (1.4.3) | ⏳ unverified — needs to be logged in at reset |
+| Soft-target skinning (1.4.6) | ⏳ unverified |
+
+Owner plays on Proudmoore (US). Reset boundary is 15:00 UTC.
+
 ## Sound System Notes
 `PlaySoundFile` with file paths does NOT work in Midnight — all audio is in CASC storage with no path access.
 `PlaySound(soundKitId, channel)` is the correct API.
@@ -89,6 +108,28 @@ Current confirmed working Majestic loot alert:
 - Root cause: `DT.tooltip:ClearLines()` was called without a nil check; if `DT.tooltip` is absent in this ElvUI build, it silently errors and nothing shows.
 - Fix: use `DT.tooltip` (with `SmartAnchorTo`) when available; fall back to `GameTooltip` (with `SetOwner`) otherwise.
 - Removed `SetMinimumWidth` call — ElvUI-only extension, would error on the GameTooltip fallback path.
+
+### [2026-07-29] Claude Opus 5 (fourth pass, 1.4.6) — external review triage
+
+Triaged a Gemini review of the repo. Accepted five items, **rejected one**, skipped one. Detail on the rejection matters most:
+
+#### ❌ REJECTED: "Add LOOT_ITEM_PUSHED_SELF so satchel/container loot is counted"
+**Do not implement this.** Majestic items can be bought on the auction house, and AH commodity purchases are delivered with a "You receive item:" message — which is exactly `LOOT_ITEM_PUSHED_SELF`. Widening the gate would start counting **bought** mats as skinning yield, which defeats the purpose of the counter. The same gate also keeps out mail, crafting and quest rewards. The handler accepting only "You receive loot:" is deliberate and is now commented as such in `SkinningTracker.lua`. Test coverage asserts pushed-item messages, including stacked AH purchases, stay rejected.
+
+#### Accepted
+- **Soft-target detection.** `GetTargetBeastId()` now checks `target` then `softinteract`. All NPC-ID checks run across both units before any name fallback, so a name match on one unit can never beat an ID match on the other. Added `SafeUnitGUID`/`SafeUnitName` pcall wrappers, matching the file's existing delve-taint defensiveness — `softinteract` is also not guaranteed valid on every client.
+- **`IsSpellKnown` hardening.** Wrapped in `IsSkinningKnown()`. **`IsSpellKnown` stays first on purpose** — it is the path verified in-game. The review suggested putting `C_Spell.IsSpellKnown`/`IsPlayerSpell` ahead of it; that would swap a confirmed check for an unverified one, and they are not exact synonyms for profession spells. Written as explicit branches, not a candidate table: a nil first entry would leave a hole and `ipairs` would stop before reaching any fallback.
+- **Debug visibility for rejected loot.** The gate returned before the debug print, so `/skt debug` was silent about messages it ignored — which made "no drop" and "message not recognised" indistinguishable, the exact question being investigated. Single rejection point now logs.
+- **ElvUI multi-panel.** `dtFrame` single reference replaced with `dtFrames`, mapping each panel to **the exact string we last wrote there**. `RefreshDataText` iterates and updates only panels that still show that string, dropping any that do not.
+
+  **Do not "simplify" this back to a plain set.** ElvUI reuses panel frames: assign a slot to a different datatext and the same frame object goes to that datatext. Holding the reference forever would let the 30s ticker overwrite whatever now owns the slot — caught in PR #5 review. The stored-string comparison is what lets us release a panel without reaching into ElvUI internals (which vary by build) to detect reassignment. Clearing keys mid-`pairs` is well-defined in Lua; only adding new ones would not be, and `UpdateText` only rewrites keys already present.
+- **`ST:GetCharKey()`** exposed; the two inline rebuilds in the UI now use it.
+
+#### Skipped
+- Migrating `.items` for all characters in `InitDB()`. The review conceded it is harmless (the UI guards with `charData.items and ...`), and `manualOverride`/`autoDetected` are lazily populated by the same design. Touching every character's saved data for no behavioural gain is not worth it.
+- The bottom-bar toggle button. Owner does not want it, so the stale comment and the unused `MakeButton` helper were removed instead. Note a UI toggle would write `manualOverride`, permanently pinning that character against auto-detection — not obviously what a button-clicker would expect.
+
+**Verification:** 9/9 new tests on `IsSkinningKnown` (including the `ipairs`-hole trap and a throwing primary), 9/9 loot-gate tests re-run with added AH-purchase cases, 13/13 on the ElvUI datatext including the panel-reassignment case, 26/26 reset tests as regression. The ElvUI prefix is load-time clean too, so the datatext logic runs in the VM against a fake panel. Soft-target still needs the client.
 
 ### [2026-07-29] Claude Opus 5 (third pass, 1.4.5)
 Cleared the last three findings from the review. **The review backlog is now empty.**
