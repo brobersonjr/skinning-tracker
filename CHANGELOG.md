@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.5 - 2026-07-29
+- Read the daily reset from the client (`C_DateAndTime.GetSecondsUntilDailyReset`) instead of a hardcoded 15:00 UTC. The tracker is now correct on EU and other non-US realms, and no longer depends on a fixed UTC offset. The old fixed-hour math is kept as a fallback if the API is unavailable.
+- Remember the tracker window position between sessions, and allow Escape to close the window.
+- Initialise once at `PLAYER_LOGIN` instead of also at `ADDON_LOADED`, where the character name and realm are not guaranteed to be available yet.
+
 ## 1.4.4 - 2026-07-29
 - Fix the loot message pattern builder not escaping `%`, which left the `%d` in `LOOT_ITEM_SELF_MULTIPLE` as a "single digit" character class so the multiple-item pattern could not match stacks of 10 or more. Stack size now comes from that pattern's capture instead of a loose scan of the whole message.
 - Compile the loot patterns once at load instead of rebuilding both of them, plus a closure, on every `CHAT_MSG_LOOT` event.

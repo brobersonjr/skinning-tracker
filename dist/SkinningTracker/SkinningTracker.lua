@@ -1,12 +1,40 @@
 -- SkinningTracker.lua
 -- Tracks daily Renowned Beast skinning for Midnight profession skinner characters.
--- Daily reset: 7:00 AM PST = 15:00 UTC
+-- Daily reset is read from the client (C_DateAndTime.GetSecondsUntilDailyReset),
+-- so it is correct for every region without a hardcoded offset.
 
 SkinningTracker = {}
 local ST = SkinningTracker
 
--- Daily reset hour in UTC (7 AM PST = 15:00 UTC, accounts for PST = UTC-8)
+-- Fallback daily reset hour in UTC, used only if the client API is unavailable.
+-- Blizzard anchors US resets to a fixed UTC time, which is why the wall-clock
+-- time shifts by an hour across DST; 15:00 UTC is the US boundary year-round.
+-- This is US-specific and is exactly why the API above is preferred.
 local RESET_HOUR_UTC = 15
+
+local SECONDS_PER_DAY = 86400
+
+-- Current server time as a Unix epoch, falling back to local time.
+-- Centralised so the convention lives in one place instead of four call sites.
+function ST:GetServerNow()
+    if C_DateAndTime and C_DateAndTime.GetServerTime then
+        local ok, t = pcall(C_DateAndTime.GetServerTime)
+        if ok and type(t) == "number" then return t end
+    end
+    return time()
+end
+
+-- Seconds until the next daily reset, straight from the client.
+-- Returns nil when the API is missing or returns something unusable, which is
+-- the signal for callers to fall back to the hardcoded UTC math below.
+local function GetSecondsUntilReset()
+    if not (C_DateAndTime and C_DateAndTime.GetSecondsUntilDailyReset) then return nil end
+    local ok, secs = pcall(C_DateAndTime.GetSecondsUntilDailyReset)
+    if not ok or type(secs) ~= "number" then return nil end
+    -- A non-positive or absurd value means the client has nothing useful yet
+    if secs <= 0 or secs > SECONDS_PER_DAY then return nil end
+    return secs
+end
 
 ST.BEASTS = {
     { id = "gloomclaw",   name = "Gloomclaw",   zone = "Eversong Woods", coords = "41.95, 79.70", npcId = 245688  },
@@ -16,13 +44,19 @@ ST.BEASTS = {
     { id = "netherscythe",name = "Netherscythe",zone = "Voidstorm",      coords = "43.13, 82.81", npcId = 247101  },
 }
 
--- Returns the Unix timestamp of the most recent 7 AM PST reset.
+-- Returns the Unix timestamp of the most recent daily reset.
 -- Optional serverTime allows callers to reuse a shared time value.
 function ST:GetLastResetTime(serverTime)
-    local now = time() -- local time (seconds since epoch)
-    -- Use server time if available for accuracy
-    serverTime = serverTime or (C_DateAndTime and C_DateAndTime.GetServerTime and C_DateAndTime.GetServerTime() or now)
+    serverTime = serverTime or self:GetServerNow()
 
+    -- Preferred: derive from the client's own countdown to the next reset.
+    -- Correct for every region and immune to DST, unlike a fixed UTC hour.
+    local secs = GetSecondsUntilReset()
+    if secs then
+        return serverTime + secs - SECONDS_PER_DAY
+    end
+
+    -- Fallback: fixed reset hour in UTC (US boundary).
     -- Calculate today's reset in UTC: floor to today then add reset hour
     local date = date("!*t", serverTime) -- UTC table
     local todayReset = serverTime
@@ -33,7 +67,7 @@ function ST:GetLastResetTime(serverTime)
 
     -- If today's reset hasn't happened yet, use yesterday's reset
     if serverTime < todayReset then
-        todayReset = todayReset - 86400
+        todayReset = todayReset - SECONDS_PER_DAY
     end
 
     return todayReset
@@ -83,8 +117,7 @@ end
 -- Mark a beast as skinned right now
 function ST:MarkSkinned(beastId)
     local data = self:GetCharData()
-    local serverTime = C_DateAndTime and C_DateAndTime.GetServerTime and C_DateAndTime.GetServerTime() or time()
-    data.beasts[beastId] = serverTime
+    data.beasts[beastId] = self:GetServerNow()
     if ST.UI and ST.UI.Refresh then
         ST.UI:Refresh()
     end
@@ -143,9 +176,12 @@ end
 
 -- Returns time (in seconds) until the next reset
 function ST:GetTimeUntilReset()
-    local serverTime = C_DateAndTime and C_DateAndTime.GetServerTime and C_DateAndTime.GetServerTime() or time()
-    local lastReset = self:GetLastResetTime()
-    local nextReset = lastReset + 86400
+    -- Use the client's countdown directly when it is available
+    local secs = GetSecondsUntilReset()
+    if secs then return secs end
+
+    local serverTime = self:GetServerNow()
+    local nextReset = self:GetLastResetTime(serverTime) + SECONDS_PER_DAY
     return nextReset - serverTime
 end
 
@@ -490,15 +526,16 @@ end)
 -- ---------------------------------------------------------------------------
 -- Addon load event
 -- ---------------------------------------------------------------------------
+-- Initialisation happens once, at PLAYER_LOGIN. ADDON_LOADED is deliberately
+-- not used: GetCharKey() needs UnitName("player") and GetRealmName(), which are
+-- not guaranteed ready that early, and SavedVariables are already loaded by the
+-- time PLAYER_LOGIN fires. Until then SkinningTrackerDB stays nil, which the
+-- SPELLS_CHANGED path below checks for.
 local loadFrame = CreateFrame("Frame")
-loadFrame:RegisterEvent("ADDON_LOADED")
 loadFrame:RegisterEvent("PLAYER_LOGIN")
 loadFrame:RegisterEvent("SPELLS_CHANGED")
 loadFrame:SetScript("OnEvent", function(self, event, arg1)
-    if event == "ADDON_LOADED" and arg1 == "SkinningTracker" then
-        InitDB()
-    elseif event == "PLAYER_LOGIN" then
-        -- Ensure DB is ready after all saved vars load
+    if event == "PLAYER_LOGIN" then
         InitDB()
         -- Reset session item counts for this login
         ST.sessionItems = {}
