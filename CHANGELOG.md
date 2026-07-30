@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.4 - 2026-07-29
+- Fix the loot message pattern builder not escaping `%`, which left the `%d` in `LOOT_ITEM_SELF_MULTIPLE` as a "single digit" character class so the multiple-item pattern could not match stacks of 10 or more. Stack size now comes from that pattern's capture instead of a loose scan of the whole message.
+- Compile the loot patterns once at load instead of rebuilding both of them, plus a closure, on every `CHAT_MSG_LOOT` event.
+- `/skt debug` loot output now includes the parsed quantity.
+
 ## 1.4.3 - 2026-07-29
 - Fix ElvUI data text showing stale progress after the daily reset; it now refreshes on the shared 30s ticker even while the tracker window is closed.
 - Fix login auto-detection wiping the manual `/skt toggle` state. An explicit toggle now persists, detection only ever enables tracking, and `SPELLS_CHANGED` retries detection in case the spellbook is not populated at login.
