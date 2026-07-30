@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.3 - 2026-07-29
+- Fix ElvUI data text showing stale progress after the daily reset; it now refreshes on the shared 30s ticker even while the tracker window is closed.
+- Fix login auto-detection wiping the manual `/skt toggle` state. An explicit toggle now persists, detection only ever enables tracking, and `SPELLS_CHANGED` retries detection in case the spellbook is not populated at login.
+- Fix `/skt reset` removing the character from the tracker table until the next login; skinner flags are now preserved across a progress reset.
+
 ## 1.4.2 - 2026-06-19
 - Update Interface version to 120007 for World of Warcraft patch 12.0.7.
 - Fix ElvUI data text tooltip not showing on mouseover; replaced unreliable DT.tooltip with GameTooltip directly.

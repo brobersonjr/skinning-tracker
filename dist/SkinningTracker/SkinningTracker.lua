@@ -56,6 +56,9 @@ local function InitDB()
             beasts = {},
             class = nil,
             items = {},
+            -- nil = follow auto-detection; true/false = explicit /skt toggle choice
+            manualOverride = nil,
+            autoDetected = false,
         }
     end
     -- Migrate existing entries that predate the items field
@@ -107,12 +110,18 @@ function ST:ToggleSkinned(beastId)
     end
 end
 
--- Toggle the current character as a Midnight profession skinner
+-- Toggle the current character as a Midnight profession skinner.
+-- Records the choice in manualOverride so login auto-detection stops
+-- overriding it on every reload.
 function ST:ToggleSkinner()
     local data = self:GetCharData()
     data.isMidnightSkinner = not data.isMidnightSkinner
+    data.manualOverride = data.isMidnightSkinner
     if ST.UI and ST.UI.Refresh then
         ST.UI:Refresh()
+    end
+    if ST.RefreshDataText then
+        ST:RefreshDataText()
     end
 end
 
@@ -171,14 +180,22 @@ local function SlashHandler(msg)
         local state = ST:IsMidnightSkinner() and "enabled" or "disabled"
         print("|cff00ff96[SkinningTracker]|r Midnight Skinner " .. state .. " for " .. GetCharKey())
     elseif cmd == "reset" then
-        SkinningTrackerDB[GetCharKey()] = {
-            isMidnightSkinner = false,
+        -- Clear tracked progress but keep the skinner flags: wiping them drops
+        -- the character out of the table until the next login.
+        local prev = ST:GetCharData()
+        local fresh = {
+            isMidnightSkinner = (prev and prev.isMidnightSkinner) or false,
+            autoDetected = (prev and prev.autoDetected) or false,
             beasts = {},
             class = select(2, UnitClass("player")),
             items = {},
         }
-        print("|cff00ff96[SkinningTracker]|r Data reset for " .. GetCharKey())
+        -- Assigned separately so an explicit `false` override is not lost
+        if prev then fresh.manualOverride = prev.manualOverride end
+        SkinningTrackerDB[GetCharKey()] = fresh
+        print("|cff00ff96[SkinningTracker]|r Progress reset for " .. GetCharKey())
         if ST.UI and ST.UI.Refresh then ST.UI:Refresh() end
+        if ST.RefreshDataText then ST:RefreshDataText() end
     elseif cmd:sub(1, 4) == "mark" then
         local beastName = strtrim(cmd:sub(5)):lower()
         local found = false
@@ -228,6 +245,32 @@ SlashCmdList["SKINNINGTRACKER"] = SlashHandler
 -- Auto-detection: listen for Midnight skinning spell (ID 8613)
 -- ---------------------------------------------------------------------------
 local SKINNING_SPELL_ID = 8613
+
+-- Apply skinning auto-detection to the current character.
+-- Two rules keep characters from silently disappearing from the tracker:
+--   1. An explicit /skt toggle (manualOverride) always wins over detection.
+--   2. Detection only ever sets the flag true. The spellbook can still be
+--      empty at PLAYER_LOGIN, and clearing the flag there would drop the
+--      character out of GetAllCharacters() and blank its row.
+local function ApplySkinnerDetection()
+    if not SkinningTrackerDB then return end
+    local data = ST:GetCharData()
+    if not data then return end
+
+    local before = data.isMidnightSkinner
+    data.autoDetected = IsSpellKnown(SKINNING_SPELL_ID) and true or false
+
+    if data.manualOverride ~= nil then
+        data.isMidnightSkinner = data.manualOverride
+    elseif data.autoDetected then
+        data.isMidnightSkinner = true
+    end
+
+    if data.isMidnightSkinner ~= before then
+        if ST.UI and ST.UI.Refresh then ST.UI:Refresh() end
+        if ST.RefreshDataText then ST:RefreshDataText() end
+    end
+end
 
 -- Build lookups: npcId -> beast id, and name (lowercase) -> beast id (fallback)
 local beastNpcIdLookup  = {}
@@ -428,6 +471,7 @@ end)
 local loadFrame = CreateFrame("Frame")
 loadFrame:RegisterEvent("ADDON_LOADED")
 loadFrame:RegisterEvent("PLAYER_LOGIN")
+loadFrame:RegisterEvent("SPELLS_CHANGED")
 loadFrame:SetScript("OnEvent", function(self, event, arg1)
     if event == "ADDON_LOADED" and arg1 == "SkinningTracker" then
         InitDB()
@@ -438,11 +482,16 @@ loadFrame:SetScript("OnEvent", function(self, event, arg1)
         ST.sessionItems = {}
         -- Auto-detect Midnight Skinning via the skinning spell; store class for UI coloring
         local data = ST:GetCharData()
-        data.isMidnightSkinner = IsSpellKnown(SKINNING_SPELL_ID)
         data.class = select(2, UnitClass("player"))
+        ApplySkinnerDetection()
         if data.isMidnightSkinner then
-            print("|cff00ff96[SkinningTracker]|r Loaded. Midnight Skinning detected — |cffffff00/skt|r to open · |cffffff00/skt debug|r to diagnose tracking.")
+            local how = data.autoDetected and "Midnight Skinning detected" or "Skinner tracking enabled"
+            print("|cff00ff96[SkinningTracker]|r Loaded. " .. how .. " — |cffffff00/skt|r to open · |cffffff00/skt debug|r to diagnose tracking.")
         end
+    elseif event == "SPELLS_CHANGED" then
+        -- The spellbook may not be populated at PLAYER_LOGIN; retry detection
+        -- once it is, and after any profession change.
+        ApplySkinnerDetection()
     end
 end)
 
