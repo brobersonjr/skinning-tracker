@@ -22,17 +22,6 @@ local COL_BEAST    = 90   -- each beast column width
 local COL_ITEM     = 145  -- each item count column width
 
 -- ---------------------------------------------------------------------------
--- Helper: create a standard button
--- ---------------------------------------------------------------------------
-local function MakeButton(parent, w, h, text, onClick)
-    local btn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-    btn:SetSize(w, h)
-    btn:SetText(text)
-    btn:SetScript("OnClick", onClick)
-    return btn
-end
-
--- ---------------------------------------------------------------------------
 -- Helper: create a FontString label
 -- ---------------------------------------------------------------------------
 local function MakeLabel(parent, text, size, justify)
@@ -112,7 +101,8 @@ local function BuildFrame()
     scroll:SetScrollChild(content)
     f.content = content
 
-    -- Bottom bar: reset countdown + current char toggle button
+    -- Bottom bar: reset countdown. Skinner status is set by auto-detection,
+    -- with /skt toggle as the manual override, so there is no button here.
     local bottomBar = CreateFrame("Frame", nil, f)
     bottomBar:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 10, 8)
     bottomBar:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -10, 8)
@@ -221,7 +211,7 @@ local function BuildRows(content, startY)
         end
 
         -- Highlight current character row
-        local isCurrent = (charKey == (UnitName("player") .. "-" .. GetRealmName()))
+        local isCurrent = (charKey == ST:GetCharKey())
         -- For the current character, read class live so color works before a relog
         local classFile = isCurrent and select(2, UnitClass("player")) or charData.class
         local charColor = GetClassColor(classFile) or (isCurrent and C_WHITE or C_GREY)
@@ -354,7 +344,7 @@ local function BuildLootSection(content, startY)
             UI.loot.rows[i] = row
         end
 
-        local isCurrent = (charKey == (UnitName("player") .. "-" .. GetRealmName()))
+        local isCurrent = (charKey == ST:GetCharKey())
         local classFile = isCurrent and select(2, UnitClass("player")) or charData.class
         local charColor = GetClassColor(classFile) or (isCurrent and C_WHITE or C_GREY)
 

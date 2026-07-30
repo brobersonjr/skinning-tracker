@@ -11,7 +11,10 @@ local C_ORANGE = "|cffff9900"
 local C_GREY   = "|cff888888"
 local C_RESET  = "|r"
 
-local dtFrame -- reference captured on first OnEvent, used by ST:RefreshDataText()
+-- Every datatext frame ElvUI has handed us, as a set. ElvUI allows the same
+-- datatext on more than one panel, and a single reference would only ever
+-- refresh whichever panel fired its event last.
+local dtFrames = {}
 local DT      -- ElvUI DataTexts module, set in InitElvUI
 
 local function UpdateText(self)
@@ -36,13 +39,16 @@ local function UpdateText(self)
     end
 end
 
--- Called by ST:MarkSkinned / ST:ToggleSkinned to keep the datatext live
+-- Called by ST:MarkSkinned / ST:ToggleSkinned and the UI ticker to keep every
+-- datatext panel live
 function ST:RefreshDataText()
-    if dtFrame then UpdateText(dtFrame) end
+    for frame in pairs(dtFrames) do
+        UpdateText(frame)
+    end
 end
 
 local function OnEvent(self, event, ...)
-    dtFrame = self -- capture frame reference for RefreshDataText
+    dtFrames[self] = true -- remember this panel for RefreshDataText
     UpdateText(self)
 end
 

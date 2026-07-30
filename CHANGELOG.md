@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.4.6 - 2026-07-29
+- Detect skinning through soft-target interact, so skinning with an interact keybind without hard-targeting the corpse is still tracked.
+- Harden the skinning spell check against a future client removing the `IsSpellKnown` global; behaviour on current clients is unchanged.
+- `/skt debug` now also reports loot messages that were ignored, making it possible to tell "no item was received" apart from "the message was not recognised".
+- Refresh every ElvUI datatext panel, not just the most recently updated one, for users who place the datatext on more than one panel.
+- Internal cleanup: shared `ST:GetCharKey()` instead of rebuilding the character key inline, and removed an unused button helper.
+
 ## 1.4.5 - 2026-07-29
 - Read the daily reset from the client (`C_DateAndTime.GetSecondsUntilDailyReset`) instead of a hardcoded 15:00 UTC. The tracker is now correct on EU and other non-US realms, and no longer depends on a fixed UTC offset. The old fixed-hour math is kept as a fallback if the API is unavailable.
 - Remember the tracker window position between sessions, and allow Escape to close the window.
