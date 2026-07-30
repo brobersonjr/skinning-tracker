@@ -90,6 +90,16 @@ Current confirmed working Majestic loot alert:
 - Fix: use `DT.tooltip` (with `SmartAnchorTo`) when available; fall back to `GameTooltip` (with `SetOwner`) otherwise.
 - Removed `SetMinimumWidth` call — ElvUI-only extension, would error on the GameTooltip fallback path.
 
+### [2026-07-29] Claude Opus 5 (second pass, 1.4.4)
+Fixed the two loot-handler items left over from the review pass below.
+- **`BuildLootPattern` did not escape `%`.** The escape class omitted `%`, so the `%d` in `LOOT_ITEM_SELF_MULTIPLE` survived into the compiled pattern as the class "exactly one digit". Verified in a real Lua VM: the old multiple-item pattern matched `x2`/`x9` but **not** `x10`/`x100`. It never caused a visible bug because the single-item pattern's greedy `(.+)` matched those messages anyway, so the accept gate always passed and the loose `x(%d+)` scan still read the right number — it was dead code that looked load-bearing. Now escapes `%` first, then converts the escaped `%s`/`%d` specifiers into `(.+)` and `(%d+)` captures.
+- **Quantity now comes from the pattern capture**, not from scanning the whole message for `x(%d+)` (which included the item link in its search space).
+- **Both patterns compile once at load** instead of being rebuilt, along with a closure, on every `CHAT_MSG_LOOT` — a hot event in groups.
+- Order matters in the new handler: the multiple form is tested **first**, because the single-item pattern also matches `...x10.` messages and testing it first would swallow the count and always report 1. Do not reorder these.
+- Capture order assumes `%s` precedes `%d`, as it does in enUS. Fine per the English-only scope; revisit if localization is ever taken on.
+
+**Verification:** ran the real extracted `BuildLootPattern` in a Lua 5.3 VM (`fengari` under Node — see the tooling note below) against single/x2/x9/x10/x100 messages plus another player's loot and a `You receive item:` push. All 7 cases pass; quantities parse correctly and non-self messages are rejected. Still not exercised in-game.
+
 ### [2026-07-29] Claude Opus 5
 Full review of all three Lua files. Fixed the three state-correctness bugs; released as 1.4.3.
 - **ElvUI datatext stale after daily reset.** The datatext registers only `{"PLAYER_LOGIN"}` and passes `nil` for ElvUI's `updateFunc`, so `ST:RefreshDataText()` only ran from `MarkSkinned`/`ToggleSkinned`/loot. Crossing the reset while logged in left it reading `Skins: Done!` until a skin or `/reload`. Fixed by calling `ST:RefreshDataText()` from the existing 30s ticker in `SkinningTrackerUI.lua`, outside the `IsShown()` guard — the datatext must update while the window is closed.
@@ -103,7 +113,11 @@ Also reported but **not** fixed (deliberately left for the user to schedule):
 - Frame position is not persisted and `SkinningTrackerFrame` is not in `UISpecialFrames` (Escape does not close it).
 - `InitDB()` at `ADDON_LOADED` is redundant with the `PLAYER_LOGIN` call and relies on `UnitName`/`GetRealmName` being ready earlier than guaranteed.
 
-**Tooling note:** there is no Lua interpreter, compiler, pip, venv, or passwordless sudo on this machine (Windows or WSL). Syntax checking was done with the pure-JS `luaparse` parser under Node via a throwaway `npm install`. All three files parse clean as Lua 5.1. Behaviour was **not** verified in-game — needs a `/reload` test.
+**Tooling note (useful for future passes):** there is no Lua interpreter, compiler, pip, venv, or passwordless sudo on this machine (Windows or WSL), but Node is present, so two npm packages cover Lua work without any install friction:
+- `luaparse` — pure-JS parser, for syntax checking. All files parse clean as Lua 5.1.
+- `fengari` — a real Lua 5.3 VM in JS. Good enough to **execute** any logic that does not touch the WoW API (string/pattern code especially). Used to test the loot patterns above against real message strings.
+
+Neither replaces an in-game `/reload`: anything calling `CreateFrame`, `C_Timer`, `UnitGUID`, `IsSpellKnown`, etc. can only be verified in the client.
 
 ### [2026-06-19] Antigravity
 - Updated interface TOC version to 120007 to support World of Warcraft patch 12.0.7.

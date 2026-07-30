@@ -417,25 +417,47 @@ AutoSkinBeast = function(beastId)
     print("|cff00ff96[SkinningTracker]|r Auto-tracked: |cffffff00" .. beastName .. "|r skinned!")
 end
 
+-- Loot messages come from locale format templates:
+--   LOOT_ITEM_SELF          = "You receive loot: %s."
+--   LOOT_ITEM_SELF_MULTIPLE = "You receive loot: %sx%d."
+-- Turn a template into a Lua pattern with captures for the item link (%s) and,
+-- where present, the stack size (%d). Escaping "%" is what makes this correct:
+-- leaving it alone means the template's "%d" survives into the compiled pattern
+-- as the character class "exactly one digit", which cannot match "x10." and up.
+local function BuildLootPattern(fmt)
+    if not fmt then return nil end
+    -- Escape every Lua pattern metacharacter, "%" included
+    local escaped = fmt:gsub("([%^%$%(%)%.%[%]%*%+%-%?%%])", "%%%1")
+    -- Then turn the now-escaped format specifiers into captures
+    escaped = escaped:gsub("%%%%s", "(.+)")
+    escaped = escaped:gsub("%%%%d", "(%%d+)")
+    return escaped
+end
+
+-- Compiled once at load: these templates never change during a session, and
+-- CHAT_MSG_LOOT is a hot event in groups.
+local LOOT_SELF_MULTI  = BuildLootPattern(LOOT_ITEM_SELF_MULTIPLE)
+local LOOT_SELF_SINGLE = BuildLootPattern(LOOT_ITEM_SELF)
+
 local lootFrame = CreateFrame("Frame")
 lootFrame:RegisterEvent("CHAT_MSG_LOOT")
 lootFrame:SetScript("OnEvent", function(self, event, msg)
-    -- Only track the current player's own loot (locale-safe)
-    local function BuildLootPattern(fmt)
-        if not fmt then return nil end
-        -- Escape Lua pattern metacharacters, then replace %s with a capture
-        local escaped = fmt:gsub("([%(%)%.%+%-%*%?%[%]%^%$])", "%%%1")
-        return escaped:gsub("%%s", "(.+)")
+    -- Only track the current player's own loot (locale-safe).
+    -- Match the multiple form first and take the quantity from its capture:
+    -- the single-item pattern's greedy (.+) also matches "...x10." messages, so
+    -- testing it first would swallow the count and always report 1.
+    local qty
+    if LOOT_SELF_MULTI then
+        local _, count = msg:match(LOOT_SELF_MULTI)
+        qty = tonumber(count)
     end
-
-    local selfSingle = BuildLootPattern(LOOT_ITEM_SELF)
-    local selfMulti  = BuildLootPattern(LOOT_ITEM_SELF_MULTIPLE)
-    if selfSingle or selfMulti then
-        if not ((selfSingle and msg:match(selfSingle)) or (selfMulti and msg:match(selfMulti))) then
+    if not qty then
+        if LOOT_SELF_SINGLE then
+            if not msg:match(LOOT_SELF_SINGLE) then return end
+        elseif not msg:find("^You receive loot:") then
             return
         end
-    else
-        if not msg:find("^You receive loot:") then return end
+        qty = 1
     end
 
     -- Item links in loot messages contain the item ID: |Hitem:ITEMID:...|h[Name]|h
@@ -443,15 +465,15 @@ lootFrame:SetScript("OnEvent", function(self, event, msg)
 
     if ST.debug then
         local data = ST:GetCharData()
-        print(string.format("|cffffff00[SKT Debug]|r LOOT itemId=%s name=%s hasData=%s items=%s",
+        print(string.format("|cffffff00[SKT Debug]|r LOOT itemId=%s name=%s qty=%s hasData=%s items=%s",
             tostring(itemId),
             tostring(majesticLookup[itemId]),
+            tostring(qty),
             tostring(data ~= nil),
             data and data.items and tostring(data.items[itemId]) or "nil"))
     end
 
     if itemId and majesticLookup[itemId] then
-        local qty = tonumber(msg:match("x(%d+)")) or tonumber(msg:match(" x(%d+)")) or 1
         local itemName = majesticLookup[itemId]
         local data = ST:GetCharData()
         if data then
