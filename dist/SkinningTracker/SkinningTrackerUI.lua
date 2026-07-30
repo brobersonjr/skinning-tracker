@@ -44,19 +44,57 @@ local function MakeLabel(parent, text, size, justify)
 end
 
 -- ---------------------------------------------------------------------------
+-- Window position persistence (SkinningTrackerUIDB, account-wide)
+-- ---------------------------------------------------------------------------
+local function EnsureUIDB()
+    if not SkinningTrackerUIDB then SkinningTrackerUIDB = {} end
+    return SkinningTrackerUIDB
+end
+
+-- Save only the anchor values, never the relativeTo frame returned second by
+-- GetPoint(): a frame object cannot be serialised into SavedVariables, and
+-- UIParent is the only anchor this window uses.
+local function SavePosition(f)
+    local point, _, relativePoint, x, y = f:GetPoint()
+    if not point then return end
+    EnsureUIDB().pos = {
+        point         = point,
+        relativePoint = relativePoint or point,
+        x             = x or 0,
+        y             = y or 0,
+    }
+end
+
+local function RestorePosition(f)
+    local pos = EnsureUIDB().pos
+    f:ClearAllPoints()
+    if pos and pos.point then
+        f:SetPoint(pos.point, UIParent, pos.relativePoint or pos.point, pos.x or 0, pos.y or 0)
+    else
+        f:SetPoint("CENTER")
+    end
+end
+
+-- ---------------------------------------------------------------------------
 -- Build the main frame (called once)
 -- ---------------------------------------------------------------------------
 local function BuildFrame()
     local f = CreateFrame("Frame", "SkinningTrackerFrame", UIParent, "BasicFrameTemplateWithInset")
     f:SetSize(FRAME_WIDTH, FRAME_HEIGHT)
-    f:SetPoint("CENTER")
     f:SetMovable(true)
     f:EnableMouse(true)
     f:RegisterForDrag("LeftButton")
     f:SetScript("OnDragStart", f.StartMoving)
-    f:SetScript("OnDragStop", f.StopMovingOrSizing)
+    f:SetScript("OnDragStop", function(self)
+        self:StopMovingOrSizing()
+        SavePosition(self)
+    end)
     f:SetClampedToScreen(true)
+    RestorePosition(f)
     f:Hide()
+
+    -- Let Escape close the window, like standard Blizzard frames
+    table.insert(UISpecialFrames, "SkinningTrackerFrame")
 
     -- Title
     f.TitleText:SetText("Skinning Tracker - Renowned Beasts")
@@ -194,7 +232,7 @@ local function BuildRows(content, startY)
         row.charLabel:Show()
 
         -- One checkbox per beast
-        local serverTime = C_DateAndTime and C_DateAndTime.GetServerTime and C_DateAndTime.GetServerTime() or time()
+        local serverTime = ST:GetServerNow()
         local lastReset = ST:GetLastResetTime(serverTime)
         for b, beast in ipairs(ST.BEASTS) do
             local cb = row.checkboxes[b]

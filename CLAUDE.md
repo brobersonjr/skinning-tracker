@@ -30,7 +30,7 @@ A third-party agent flagged 6 issues. Assessment below — do not act on dismiss
 | # | Finding | Decision | Reason |
 |---|---------|----------|--------|
 | 1 | Global namespace (`SkinningTracker` global) | **Dismiss** | Collision risk is negligible for this addon name |
-| 2 | Hardcoded reset time (UTC 15) fails for EU servers | **Defer** | English/US-only audience for now; revisit if EU players adopt the addon |
+| 2 | Hardcoded reset time (UTC 15) fails for EU servers | **Fixed in 1.4.5** | Now reads `C_DateAndTime.GetSecondsUntilDailyReset()`; the fixed 15:00 UTC math survives only as a fallback. No longer region-specific |
 | 3 | Multiple event frames | **Dismiss** | Standard WoW addon pattern, no real overhead |
 | 4 | GUID parsing via `strsplit` | **Dismiss** | Format has been stable for years, works correctly |
 | 5 | Hardcoded font `FRIZQT__.TTF` | **Dismiss** | This is the standard WoW font, always present |
@@ -89,6 +89,15 @@ Current confirmed working Majestic loot alert:
 - Root cause: `DT.tooltip:ClearLines()` was called without a nil check; if `DT.tooltip` is absent in this ElvUI build, it silently errors and nothing shows.
 - Fix: use `DT.tooltip` (with `SmartAnchorTo`) when available; fall back to `GameTooltip` (with `SetOwner`) otherwise.
 - Removed `SetMinimumWidth` call — ElvUI-only extension, would error on the GameTooltip fallback path.
+
+### [2026-07-29] Claude Opus 5 (third pass, 1.4.5)
+Cleared the last three findings from the review. **The review backlog is now empty.**
+- **Daily reset now comes from the client.** `C_DateAndTime.GetSecondsUntilDailyReset()` gives the boundary directly, so `lastReset = serverTime + secs - 86400`. This closes deferred item #2 in the table above: the addon is no longer US-specific and needs no DST reasoning. The old fixed-hour math is kept as a fallback behind a guard that rejects nil, non-numbers, `<= 0`, `> 86400`, and a throwing API. `RESET_HOUR_UTC = 15` stays **only** as that fallback — do not treat it as the primary path.
+- **Window position persists; Escape closes the window.** Added a second SavedVariable, `SkinningTrackerUIDB` (account-wide), and registered `SkinningTrackerFrame` in `UISpecialFrames`. Position is stored as anchor values only — `GetPoint()`'s second return is a frame object and cannot be serialised, so the window always re-anchors to `UIParent`. **The TOC must list `SkinningTrackerUIDB` or nothing persists.**
+- **Init happens once, at `PLAYER_LOGIN`.** Dropped the `ADDON_LOADED` registration entirely: SavedVariables are already loaded by `PLAYER_LOGIN`, and `GetCharKey()` needs `UnitName("player")`/`GetRealmName()`, which are not guaranteed that early. `SkinningTrackerDB` now stays nil until login, which the `SPELLS_CHANGED` guard already handles.
+- Collapsed the four copies of the `C_DateAndTime.GetServerTime() or time()` idiom into `ST:GetServerNow()`, so the convention in "Coding Conventions" above lives in one place.
+
+**Verification:** the top ~197 lines of `SkinningTracker.lua` are load-time clean (pure Lua, no `CreateFrame`/`SlashCmdList`), so the real reset functions were extracted and executed in a Lua VM against a stubbed `C_DateAndTime`. 26/26 pass: the API path, all six bad-API shapes falling back correctly, a 48-hour hour-by-hour walk confirming the fallback boundary sits at 15:00:00 UTC and steps exactly once per day, and countdown formatting. Note the harness must shim `date = os.date` / `time = os.time`, since those are WoW globals. UI position/Escape behaviour is **not** covered — that needs the client.
 
 ### [2026-07-29] Claude Opus 5 (second pass, 1.4.4)
 Fixed the two loot-handler items left over from the review pass below.
