@@ -90,6 +90,21 @@ Current confirmed working Majestic loot alert:
 - Fix: use `DT.tooltip` (with `SmartAnchorTo`) when available; fall back to `GameTooltip` (with `SetOwner`) otherwise.
 - Removed `SetMinimumWidth` call — ElvUI-only extension, would error on the GameTooltip fallback path.
 
+### [2026-07-29] Claude Opus 5
+Full review of all three Lua files. Fixed the three state-correctness bugs; released as 1.4.3.
+- **ElvUI datatext stale after daily reset.** The datatext registers only `{"PLAYER_LOGIN"}` and passes `nil` for ElvUI's `updateFunc`, so `ST:RefreshDataText()` only ran from `MarkSkinned`/`ToggleSkinned`/loot. Crossing the reset while logged in left it reading `Skins: Done!` until a skin or `/reload`. Fixed by calling `ST:RefreshDataText()` from the existing 30s ticker in `SkinningTrackerUI.lua`, outside the `IsShown()` guard — the datatext must update while the window is closed.
+- **Login detection clobbered the manual toggle.** `data.isMidnightSkinner = IsSpellKnown(...)` overwrote the flag unconditionally, making `/skt toggle` last only until the next login. Worse, any login where `IsSpellKnown` returned false wiped the flag and dropped the character from `GetAllCharacters()`, which reads as data loss. Introduced tri-state `manualOverride` (nil = follow detection) plus `autoDetected`, centralised in `ApplySkinnerDetection()`. Detection now only ever sets the flag true; an explicit toggle always wins. Also registered `SPELLS_CHANGED` to retry.
+- **`/skt reset` blanked the character row.** The fresh table hardcoded `isMidnightSkinner = false`, hiding the character until relog. Skinner flags are now carried across the reset. Note `manualOverride` is assigned separately rather than via `or` so an explicit `false` is not silently dropped.
+
+Also reported but **not** fixed (deliberately left for the user to schedule):
+- `BuildLootPattern` does not escape `%`, so the `%d` in `LOOT_ITEM_SELF_MULTIPLE` survives as a pattern class and `selfMulti` never matches quantities >= 10. Currently harmless — greedy `(.+)` in the single pattern matches anyway — but it is dead code that looks load-bearing.
+- Both loot patterns are recompiled inside the handler on every `CHAT_MSG_LOOT`; should be hoisted to file scope.
+- `RESET_HOUR_UTC` appears correct (Blizzard anchors US resets to a fixed UTC time) but the "7:00 AM PST / accounts for UTC-8" comment only describes winter. `C_DateAndTime.GetSecondsUntilDailyReset()` would delete the whole function and close deferred item #2 (EU realms).
+- Frame position is not persisted and `SkinningTrackerFrame` is not in `UISpecialFrames` (Escape does not close it).
+- `InitDB()` at `ADDON_LOADED` is redundant with the `PLAYER_LOGIN` call and relies on `UnitName`/`GetRealmName` being ready earlier than guaranteed.
+
+**Tooling note:** there is no Lua interpreter, compiler, pip, venv, or passwordless sudo on this machine (Windows or WSL). Syntax checking was done with the pure-JS `luaparse` parser under Node via a throwaway `npm install`. All three files parse clean as Lua 5.1. Behaviour was **not** verified in-game — needs a `/reload` test.
+
 ### [2026-06-19] Antigravity
 - Updated interface TOC version to 120007 to support World of Warcraft patch 12.0.7.
 - Bumped version from 1.4.1 to 1.4.2 in TOC files and changelog.

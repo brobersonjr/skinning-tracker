@@ -373,7 +373,8 @@ function UI:Refresh()
 end
 
 -- ---------------------------------------------------------------------------
--- Countdown ticker: refresh reset label every 30s while open
+-- Countdown ticker: refresh reset label every 30s while open, and keep the
+-- ElvUI datatext current even while closed
 -- ---------------------------------------------------------------------------
 local ticker
 local function StartTicker()
@@ -381,6 +382,12 @@ local function StartTicker()
     ticker = C_Timer.NewTicker(30, function()
         if UI.frame and UI.frame:IsShown() then
             UI:Refresh()
+        end
+        -- The datatext registers only PLAYER_LOGIN, so without this it keeps
+        -- showing yesterday's progress after the daily reset until the player
+        -- skins something or reloads. It must update while the window is shut.
+        if ST.RefreshDataText then
+            ST:RefreshDataText()
         end
     end)
 end
