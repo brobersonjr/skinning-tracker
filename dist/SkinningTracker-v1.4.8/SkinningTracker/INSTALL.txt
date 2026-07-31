@@ -1,0 +1,10 @@
+SkinningTracker installation
+
+1. Extract the SkinningTracker folder from this zip.
+2. Copy the SkinningTracker folder into your World of Warcraft AddOns directory.
+3. Typical path:
+   World of Warcraft\_retail_\Interface\AddOns\SkinningTracker
+4. Reload the UI in game with /reload, then use /skt.
+
+The folder inside AddOns should be named exactly:
+SkinningTracker

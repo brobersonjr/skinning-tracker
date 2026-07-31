@@ -55,6 +55,11 @@ Earlier entries below were written before anything had been run in the client. C
 | ElvUI datatext (all of it) | ⏳ unverified — owner does not use ElvUI, guildie to test |
 | Datatext refresh across daily reset (1.4.3) | ⏳ unverified — needs to be logged in at reset |
 | Soft-target skinning (1.4.6) | ⏳ unverified |
+| Checkboxes locked while Manual Edit is off (1.4.8) | ✅ confirmed — owner reports the check does not respond until the button is clicked. This is the `RegisterForClicks()` assumption the harness cannot test; the `SetDisabledCheckedTexture` fallback is not needed |
+| Manual Edit button unlocks and marks (1.4.8) | ✅ confirmed |
+| Blue tint on a manual mark persists across `/reload` (1.4.8) | ✅ confirmed |
+| Auto-detection drops the tint on a hand-marked beast (1.4.8) | ⏳ unverified — needs a hand-mark followed by actually skinning that beast |
+| Manual Edit re-locks when the window is closed (1.4.8) | ⏳ unverified |
 
 Owner plays on Proudmoore (US). Reset boundary is 15:00 UTC.
 

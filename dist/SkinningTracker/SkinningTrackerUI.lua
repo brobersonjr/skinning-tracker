@@ -117,6 +117,10 @@ local function BuildFrame()
     local editBtn = CreateFrame("Button", nil, bottomBar, "UIPanelButtonTemplate")
     editBtn:SetSize(120, 22)
     editBtn:SetPoint("RIGHT", bottomBar, "RIGHT", 0, 0)
+    -- Set here as well as in UpdateEditButton: Show() runs before the first
+    -- Refresh(), so without this the button is briefly blank when the window
+    -- is opened for the first time in a session.
+    editBtn:SetText("Manual Edit")
     editBtn:SetScript("OnClick", function() UI:SetManualEdit(not UI.manualEdit) end)
     editBtn:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_TOP")
