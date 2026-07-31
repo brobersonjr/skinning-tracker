@@ -23,6 +23,9 @@ WoW Midnight addon that tracks daily Renowned Beast skinning across profession s
 - No build system — standard Lua addon
 - Test in-game with `/reload` after changes
 - Debug mode: `/skt debug`
+- Automated tests: `npm install --no-save fengari && node tests/run.js`.
+  Pure-logic only — frames, timers and tooltips are stubbed to no-ops, so a
+  green run never substitutes for an in-game `/reload`.
 
 ## Reviewed Findings (2026-03-07)
 A third-party agent flagged 6 issues. Assessment below — do not act on dismissed items.
@@ -84,6 +87,19 @@ Current confirmed working Majestic loot alert:
 - Finding 1
 - Finding 2
 -->
+
+### [2026-07-31] Claude Opus 5 — Manual Edit mode (1.4.8)
+1.4.7 made the checkmarks read-only. That removed the only recourse for a detection error in either direction: a miss could not be recorded, and a false positive could only be cleared with `/skt reset`, which wipes all five beasts. Since 1.4.4–1.4.6 were each detection-correctness fixes, treating detection as complete was premature. 1.4.8 restores a repair path without giving up the read-only default.
+
+- **`manualBeasts[beastId]` stores a timestamp, not a boolean.** Same shape as `beasts` on purpose, so "marked today" is the identical `ts >= lastReset` test. A flag from a previous day goes inert with no cleanup pass and no special handling at the reset boundary. **Do not "simplify" this to a boolean** — that would need an explicit sweep at every rollover.
+- **`ST:MarkSkinned` clears the manual flag.** Auto-detection outranks a hand-entered mark, so the blue tint keeps meaning "the addon never detected this" rather than "you once clicked this". That is the signal worth having: a beast that stays blue day after day is a real detection gap.
+- **`WasManuallyMarked` also requires the beast row to be current.** A fresh flag beside a stale `beasts` entry must not read as marked. It takes an optional `charData` because the UI calls it per row, and other characters' rows may predate `manualBeasts` entirely — the nil path is covered by a test.
+- **Checkboxes stay `SetEnabled(true)` in both states; `RegisterForClicks` is the gate.** A `CheckButton` flips its own checked state on click *before* `OnClick` runs, so clearing the script alone does not lock it. Keeping the button enabled is also what stops the greyed `UI-CheckBox-Check-Disabled` texture from being used, which is what makes tinting possible.
+- **The check tint is set on every refresh, in both branches.** These checkbox frames are pooled and reused across rows; setting the colour only on the manual branch would let one row's tint bleed onto another character.
+- **This is not the skinner-status button declined in the 1.4.6 pass.** That one would have written `manualOverride` and pinned the character against auto-detection. Manual Edit never touches `manualOverride` and never changes detection.
+- Manual Edit is session-only and re-locks on `OnHide`, which covers the X button, Escape and `/skt` alike. It is a repair mode, not a preference.
+
+**Verification:** all three files parse clean as Lua 5.1. 41/41 in a real Lua VM covering the mark/unmark round trip, the auto-promotion rule, the reset boundary, the stale-flag guard, legacy rows without `manualBeasts`, `/skt reset`, per-character isolation, and slash parity including double-mark and `unmark`-not-parsed-as-`mark`. Mutation-checked: breaking auto-promotion, the staleness guard, or the reset each fail a named test. **The harness is committed this time** (`tests/`), closing the gap noted in AGENTS.md that earlier harnesses could not be re-run. Frames, tooltips and the `RegisterForClicks` lock are stubbed to no-ops and still need the client.
 
 ### [2026-03-08] GPT-5 Codex
 - Reviewed `SkinningTracker.lua` sound flow and identified overlap risk from shared no-drop timer token.

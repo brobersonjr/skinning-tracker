@@ -99,11 +99,19 @@ local function InitDB()
             -- nil = follow auto-detection; true/false = explicit /skt toggle choice
             manualOverride = nil,
             autoDetected = false,
+            -- beastId -> timestamp of a Manual Edit mark. Same shape as `beasts`
+            -- on purpose: "marked today" is the identical `ts >= lastReset` test,
+            -- so a flag from a previous day goes inert without any cleanup pass.
+            manualBeasts = {},
         }
     end
     -- Migrate existing entries that predate the items field
     if not SkinningTrackerDB[key].items then
         SkinningTrackerDB[key].items = {}
+    end
+    -- Same, for entries that predate Manual Edit mode
+    if not SkinningTrackerDB[key].manualBeasts then
+        SkinningTrackerDB[key].manualBeasts = {}
     end
 end
 
@@ -124,6 +132,54 @@ end
 function ST:MarkSkinned(beastId)
     local data = self:GetCharData()
     data.beasts[beastId] = self:GetServerNow()
+    -- Detection has now seen this beast first-hand, so it outranks any earlier
+    -- hand-entered mark. Clearing the flag keeps the tint meaning "the addon
+    -- never detected this", which is the signal worth surfacing.
+    if data.manualBeasts then
+        data.manualBeasts[beastId] = nil
+    end
+    if ST.UI and ST.UI.Refresh then
+        ST.UI:Refresh()
+    end
+    if ST.RefreshDataText then
+        ST:RefreshDataText()
+    end
+end
+
+-- Was this beast set by hand today rather than by detection?
+-- charData is optional so the UI can pass a row's table without refetching;
+-- it may belong to another character and predate manualBeasts entirely.
+function ST:WasManuallyMarked(beastId, charData, lastReset)
+    charData = charData or self:GetCharData()
+    local manual = charData and charData.manualBeasts
+    local ts = manual and manual[beastId]
+    if not ts then return false end
+    -- The beast row must still be set today too: an unmark clears the flag, but
+    -- a stale flag alongside a stale beast timestamp must not read as marked.
+    local beastTs = charData.beasts and charData.beasts[beastId]
+    lastReset = lastReset or self:GetLastResetTime()
+    return ts >= lastReset and beastTs ~= nil and beastTs >= lastReset
+end
+
+-- Manual Edit mode: toggle a beast for the CURRENT character only.
+-- This is the repair path for detection misses and false positives; automatic
+-- detection remains the normal way progress is recorded.
+function ST:ToggleSkinnedManual(beastId)
+    local data = self:GetCharData()
+    if not data then return end
+    data.manualBeasts = data.manualBeasts or {}
+
+    if self:HasSkinnedToday(beastId) then
+        -- Unmark: push the timestamp before the last reset, matching how the
+        -- daily rollover already makes an old entry read as unskinned.
+        data.beasts[beastId] = self:GetLastResetTime() - 1
+        data.manualBeasts[beastId] = nil
+    else
+        local now = self:GetServerNow()
+        data.beasts[beastId] = now
+        data.manualBeasts[beastId] = now
+    end
+
     if ST.UI and ST.UI.Refresh then
         ST.UI:Refresh()
     end
@@ -214,6 +270,7 @@ local function SlashHandler(msg)
             beasts = {},
             class = select(2, UnitClass("player")),
             items = {},
+            manualBeasts = {},
         }
         -- Assigned separately so an explicit `false` override is not lost
         if prev then fresh.manualOverride = prev.manualOverride end
@@ -221,8 +278,37 @@ local function SlashHandler(msg)
         print("|cff00ff96[SkinningTracker]|r Progress reset for " .. GetCharKey())
         if ST.UI and ST.UI.Refresh then ST.UI:Refresh() end
         if ST.RefreshDataText then ST:RefreshDataText() end
-    elseif cmd == "mark" or cmd:sub(1, 5) == "mark " then
-        print("|cff00ff96[SkinningTracker]|r Manual beast marking is unavailable; progress is tracked automatically.")
+    elseif cmd == "mark" or cmd:sub(1, 5) == "mark "
+        or cmd == "unmark" or cmd:sub(1, 7) == "unmark " then
+        -- Keyboard parity with the window's Manual Edit button. Both routes go
+        -- through ToggleSkinnedManual so there is only one state transition.
+        local unmark = (cmd:sub(1, 6) == "unmark")
+        local beastName = strtrim(cmd:sub(unmark and 8 or 6)):lower()
+        if beastName == "" then
+            print("|cff00ff96[SkinningTracker]|r Usage: /skt " .. (unmark and "unmark" or "mark") .. " <beast>")
+            return
+        end
+        local found = false
+        for _, beast in ipairs(ST.BEASTS) do
+            if beast.name:lower() == beastName or beast.id == beastName then
+                local isSet = ST:HasSkinnedToday(beast.id)
+                if unmark == isSet then
+                    ST:ToggleSkinnedManual(beast.id)
+                    print("|cff00ff96[SkinningTracker]|r " .. (unmark and "Cleared " or "Manually marked ")
+                        .. "|cffffff00" .. beast.name .. "|r"
+                        .. (unmark and "." or " as skinned."))
+                else
+                    print("|cff00ff96[SkinningTracker]|r |cffffff00" .. beast.name .. "|r is already "
+                        .. (isSet and "marked as skinned." or "not marked."))
+                end
+                found = true
+                break
+            end
+        end
+        if not found then
+            print("|cff00ff96[SkinningTracker]|r Unknown beast: |cffff4444" .. beastName .. "|r")
+            print("Valid names: Gloomclaw, Silverscale, Lumenfin, Umbrafang, Netherscythe")
+        end
     elseif cmd == "debug" then
         ST.debug = not ST.debug
         local state = ST.debug and "|cff00ff96ON|r" or "|cffff4444OFF|r"

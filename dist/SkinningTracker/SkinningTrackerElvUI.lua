@@ -59,8 +59,8 @@ local function StillOurs(frame, lastText)
     return ok and current == lastText
 end
 
--- Called by ST:MarkSkinned and the UI ticker to keep every
--- datatext panel live
+-- Called by ST:MarkSkinned / ST:ToggleSkinnedManual and the UI ticker to keep
+-- every datatext panel live
 function ST:RefreshDataText()
     -- Clearing existing keys during traversal is well-defined in Lua; only
     -- adding new ones would be, and UpdateText only ever rewrites keys already

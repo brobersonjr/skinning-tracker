@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.4.8 - 2026-07-31
+- Add a Manual Edit button to the tracker window. It unlocks the current character's checkboxes so a kill the addon missed can be recorded, or a wrong mark cleared. Off by default and re-locks when the window closes.
+- Show hand-entered marks in blue, with a tooltip saying whether each check was auto-detected or set manually. A manual mark reverts to a normal auto mark if detection later catches the same beast.
+- Restore `/skt mark <beast>` and add `/skt unmark <beast>` as the keyboard equivalent of the button.
+- Checkmarks no longer render with the greyed-out disabled texture.
+- Add a committed test harness under `tests/` so these paths can be re-run from the repository.
+
 ## 1.4.7 - 2026-07-31
 - Make Renowned Beast checkmarks read-only now that automatic skinning detection is reliable.
 - Remove manual beast toggling and disable `/skt mark`; legacy uses now explain that progress is tracked automatically.
