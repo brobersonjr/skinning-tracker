@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.9 - 2026-07-31
+- Set the addon author to `brobersonjr` instead of the placeholder `You`.
+- Rewrite the README: what the addon does, install instructions, and the full command list.
+
 ## 1.4.8 - 2026-07-31
 - Add a Manual Edit button to the tracker window. It unlocks the current character's checkboxes so a kill the addon missed can be recorded, or a wrong mark cleared. Off by default and re-locks when the window closes.
 - Show hand-entered marks in green instead of the usual yellow, with a tooltip saying whether each check was auto-detected or set manually. A manual mark reverts to a normal auto mark if detection later catches the same beast.
