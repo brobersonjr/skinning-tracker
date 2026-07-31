@@ -57,9 +57,9 @@ Earlier entries below were written before anything had been run in the client. C
 | Soft-target skinning (1.4.6) | ⏳ unverified |
 | Checkboxes locked while Manual Edit is off (1.4.8) | ✅ confirmed — owner reports the check does not respond until the button is clicked. This is the `RegisterForClicks()` assumption the harness cannot test; the `SetDisabledCheckedTexture` fallback is not needed |
 | Manual Edit button unlocks and marks (1.4.8) | ✅ confirmed |
-| Blue tint on a manual mark persists across `/reload` (1.4.8) | ✅ confirmed |
-| Auto-detection drops the tint on a hand-marked beast (1.4.8) | ⏳ unverified — needs a hand-mark followed by actually skinning that beast |
-| Manual Edit re-locks when the window is closed (1.4.8) | ⏳ unverified |
+| Green tint on a manual mark persists across `/reload` (1.4.8) | ✅ confirmed |
+| Auto-detection drops the tint on a hand-marked beast (1.4.8) | ✅ confirmed — hand-marked Gloomclaw then skinned it; check went green → yellow |
+| Manual Edit re-locks when the window is closed (1.4.8) | ✅ confirmed |
 
 Owner plays on Proudmoore (US). Reset boundary is 15:00 UTC.
 
@@ -97,10 +97,11 @@ Current confirmed working Majestic loot alert:
 1.4.7 made the checkmarks read-only. That removed the only recourse for a detection error in either direction: a miss could not be recorded, and a false positive could only be cleared with `/skt reset`, which wipes all five beasts. Since 1.4.4–1.4.6 were each detection-correctness fixes, treating detection as complete was premature. 1.4.8 restores a repair path without giving up the read-only default.
 
 - **`manualBeasts[beastId]` stores a timestamp, not a boolean.** Same shape as `beasts` on purpose, so "marked today" is the identical `ts >= lastReset` test. A flag from a previous day goes inert with no cleanup pass and no special handling at the reset boundary. **Do not "simplify" this to a boolean** — that would need an explicit sweep at every rollover.
-- **`ST:MarkSkinned` clears the manual flag.** Auto-detection outranks a hand-entered mark, so the blue tint keeps meaning "the addon never detected this" rather than "you once clicked this". That is the signal worth having: a beast that stays blue day after day is a real detection gap.
+- **`ST:MarkSkinned` clears the manual flag.** Auto-detection outranks a hand-entered mark, so the green tint keeps meaning "the addon never detected this" rather than "you once clicked this". That is the signal worth having: a beast that stays green day after day is a real detection gap.
 - **`WasManuallyMarked` also requires the beast row to be current.** A fresh flag beside a stale `beasts` entry must not read as marked. It takes an optional `charData` because the UI calls it per row, and other characters' rows may predate `manualBeasts` entirely — the nil path is covered by a test.
 - **Checkboxes stay `SetEnabled(true)` in both states; `RegisterForClicks` is the gate.** A `CheckButton` flips its own checked state on click *before* `OnClick` runs, so clearing the script alone does not lock it. Keeping the button enabled is also what stops the greyed `UI-CheckBox-Check-Disabled` texture from being used, which is what makes tinting possible.
 - **The check tint is set on every refresh, in both branches.** These checkbox frames are pooled and reused across rows; setting the colour only on the manual branch would let one row's tint bleed onto another character.
+- **The manual tint renders GREEN, not the blue its constant suggests.** `SetVertexColor` multiplies against the texture, and `UI-CheckBox-Check` is gold (~1, 0.82, 0) with essentially no blue channel, so `(0.45, 0.7, 1)` comes out olive-green. **No vertex colour can make this check blue.** A true hue would need `SetDesaturated(true)` first, which is deliberately not done — green against the normal yellow-gold is already clearly distinguishable and is the combination confirmed in-game. Tooltip text is *not* multiplied by a texture, so its colours are set to match how the check actually renders rather than reusing the vertex constants.
 - **This is not the skinner-status button declined in the 1.4.6 pass.** That one would have written `manualOverride` and pinned the character against auto-detection. Manual Edit never touches `manualOverride` and never changes detection.
 - Manual Edit is session-only and re-locks on `OnHide`, which covers the X button, Escape and `/skt` alike. It is a repair mode, not a preference.
 

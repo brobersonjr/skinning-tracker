@@ -285,6 +285,13 @@ local function BuildRows(content, startY)
             -- from a detected one. Set unconditionally on every pass: these
             -- checkbox frames are pooled and reused across rows, so leaving the
             -- colour unset would let a previous row's tint bleed through.
+            --
+            -- SetVertexColor MULTIPLIES against the texture, and UI-CheckBox-Check
+            -- is gold (~1, 0.82, 0) with essentially no blue channel. So this
+            -- renders GREEN, not the blue the numbers suggest, and no vertex
+            -- colour can make it blue. Confirmed in-game: manual reads green,
+            -- auto reads the normal yellow-gold. To get a true hue you would have
+            -- to SetDesaturated(true) first, which is deliberately not done here.
             local check = cb:GetCheckedTexture()
             if check then
                 if wasManual then
@@ -321,10 +328,14 @@ local function BuildRows(content, startY)
                 GameTooltip:AddLine(charKey, 0.8, 0.8, 0.8)
                 if skinnedToday then
                     local ago = SecondsToTime(math.max(0, ST:GetServerNow() - ts))
+                    -- Match these to how the check actually renders, not to the
+                    -- vertex-colour constants: tooltip text is not multiplied by
+                    -- a texture, so the same numbers would come out a different
+                    -- colour here than they do on the checkbox.
                     if wasManual then
-                        GameTooltip:AddLine("Manually marked " .. ago .. " ago", 0.45, 0.7, 1)
+                        GameTooltip:AddLine("Manually marked " .. ago .. " ago", 0.5, 0.85, 0.35)
                     else
-                        GameTooltip:AddLine("Auto-detected " .. ago .. " ago", 0.4, 1, 0.6)
+                        GameTooltip:AddLine("Auto-detected " .. ago .. " ago", 1, 0.82, 0)
                     end
                 else
                     GameTooltip:AddLine("Not skinned today", 0.7, 0.7, 0.7)
