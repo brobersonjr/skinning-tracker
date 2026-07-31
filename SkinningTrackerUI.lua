@@ -101,8 +101,9 @@ local function BuildFrame()
     scroll:SetScrollChild(content)
     f.content = content
 
-    -- Bottom bar: reset countdown. Skinner status is set by auto-detection,
-    -- with /skt toggle as the manual override, so there is no button here.
+    -- Bottom bar: reset countdown on the left, Manual Edit toggle on the right.
+    -- Note this is NOT the skinner-status button that was declined earlier: it
+    -- does not touch manualOverride and never changes auto-detection.
     local bottomBar = CreateFrame("Frame", nil, f)
     bottomBar:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 10, 8)
     bottomBar:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -10, 8)
@@ -113,10 +114,47 @@ local function BuildFrame()
     resetLabel:SetFont("Fonts\\FRIZQT__.TTF", 11, "")
     f.resetLabel = resetLabel
 
+    local editBtn = CreateFrame("Button", nil, bottomBar, "UIPanelButtonTemplate")
+    editBtn:SetSize(120, 22)
+    editBtn:SetPoint("RIGHT", bottomBar, "RIGHT", 0, 0)
+    -- Set here as well as in UpdateEditButton: Show() runs before the first
+    -- Refresh(), so without this the button is briefly blank when the window
+    -- is opened for the first time in a session.
+    editBtn:SetText("Manual Edit")
+    editBtn:SetScript("OnClick", function() UI:SetManualEdit(not UI.manualEdit) end)
+    editBtn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetText("Manual Edit", 1, 1, 1)
+        GameTooltip:AddLine("Unlock this character's checkboxes to record a kill the addon missed, or clear one it got wrong.", 0.8, 0.8, 0.8, true)
+        GameTooltip:AddLine("Re-locks when you close the window.", 0.6, 0.6, 0.6)
+        GameTooltip:Show()
+    end)
+    editBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    f.editBtn = editBtn
 
-    UI.frame   = f
-    UI.content = content
-    UI.rows    = {}
+    -- Manual Edit is a repair mode, not a preference: it is session-only and
+    -- always off again the next time the window opens.
+    f:SetScript("OnHide", function()
+        UI.manualEdit = false
+    end)
+
+    UI.frame      = f
+    UI.content    = content
+    UI.rows       = {}
+    UI.manualEdit = false
+end
+
+-- Set Manual Edit mode and rebuild so the rows pick up the new lock state.
+function UI:SetManualEdit(on)
+    self.manualEdit = on and true or false
+    self:Refresh()
+end
+
+-- Keep the button label in step with the mode.
+local function UpdateEditButton()
+    local btn = UI.frame and UI.frame.editBtn
+    if not btn then return end
+    btn:SetText(UI.manualEdit and (C_ORANGE .. "Manual Edit: ON" .. C_RESET) or "Manual Edit")
 end
 
 -- ---------------------------------------------------------------------------
@@ -158,6 +196,7 @@ local function BuildHeader(content)
             GameTooltip:AddLine(zone, 0.8, 0.8, 0.8)
             GameTooltip:AddLine("Coords: " .. coords, 0.7, 0.9, 0.7)
             GameTooltip:AddLine("Progress is recorded automatically when skinned.", 0.6, 0.6, 0.6)
+            GameTooltip:AddLine("Use Manual Edit to correct a missed or wrong mark.", 0.6, 0.6, 0.6)
             GameTooltip:Show()
         end)
         bHeader:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -236,12 +275,79 @@ local function BuildRows(content, startY)
             cb:SetPoint("TOPLEFT", content, "TOPLEFT", x, y + 2)
 
             local ts = charData.beasts[beast.id]
-            local skinnedToday = ts and (ts >= lastReset)
+            local skinnedToday = ts and (ts >= lastReset) or false
             cb:SetChecked(skinnedToday)
 
-            -- Progress is automatic-only; checkboxes are read-only indicators.
-            cb:SetEnabled(false)
-            cb:SetScript("OnClick", nil)
+            local wasManual = skinnedToday
+                and ST:WasManuallyMarked(beast.id, charData, lastReset)
+
+            -- Tint the check itself so a hand-entered mark is distinguishable
+            -- from a detected one. Set unconditionally on every pass: these
+            -- checkbox frames are pooled and reused across rows, so leaving the
+            -- colour unset would let a previous row's tint bleed through.
+            --
+            -- SetVertexColor MULTIPLIES against the texture, and UI-CheckBox-Check
+            -- is gold (~1, 0.82, 0) with essentially no blue channel. So this
+            -- renders GREEN, not the blue the numbers suggest, and no vertex
+            -- colour can make it blue. Confirmed in-game: manual reads green,
+            -- auto reads the normal yellow-gold. To get a true hue you would have
+            -- to SetDesaturated(true) first, which is deliberately not done here.
+            local check = cb:GetCheckedTexture()
+            if check then
+                if wasManual then
+                    check:SetVertexColor(0.45, 0.7, 1)
+                else
+                    check:SetVertexColor(1, 1, 1)
+                end
+            end
+
+            -- Rows stay read-only unless Manual Edit is on, and only ever for
+            -- the current character. Kept SetEnabled(true) in both states so the
+            -- normal check texture is used rather than the greyed disabled one;
+            -- RegisterForClicks is what actually gates interaction, because a
+            -- CheckButton flips its own checked state on click before OnClick
+            -- runs, so clearing the script alone would not stop it.
+            local unlocked = UI.manualEdit and isCurrent
+            cb:SetEnabled(true)
+            if unlocked then
+                local beastId = beast.id
+                cb:RegisterForClicks("LeftButtonUp")
+                cb:SetScript("OnClick", function()
+                    ST:ToggleSkinnedManual(beastId)
+                end)
+            else
+                cb:RegisterForClicks()
+                cb:SetScript("OnClick", nil)
+            end
+
+            -- Tooltip works in both states; it is the only place the auto vs
+            -- manual distinction is spelled out rather than just coloured.
+            cb:SetScript("OnEnter", function(self)
+                GameTooltip:SetOwner(self, "ANCHOR_TOP")
+                GameTooltip:SetText(beast.name, 1, 1, 1)
+                GameTooltip:AddLine(charKey, 0.8, 0.8, 0.8)
+                if skinnedToday then
+                    local ago = SecondsToTime(math.max(0, ST:GetServerNow() - ts))
+                    -- Match these to how the check actually renders, not to the
+                    -- vertex-colour constants: tooltip text is not multiplied by
+                    -- a texture, so the same numbers would come out a different
+                    -- colour here than they do on the checkbox.
+                    if wasManual then
+                        GameTooltip:AddLine("Manually marked " .. ago .. " ago", 0.5, 0.85, 0.35)
+                    else
+                        GameTooltip:AddLine("Auto-detected " .. ago .. " ago", 1, 0.82, 0)
+                    end
+                else
+                    GameTooltip:AddLine("Not skinned today", 0.7, 0.7, 0.7)
+                end
+                if unlocked then
+                    GameTooltip:AddLine("Click to toggle.", 0.6, 0.6, 0.6)
+                elseif isCurrent then
+                    GameTooltip:AddLine("Enable Manual Edit to change this.", 0.6, 0.6, 0.6)
+                end
+                GameTooltip:Show()
+            end)
+            cb:SetScript("OnLeave", function() GameTooltip:Hide() end)
             cb:Show()
         end
 
@@ -388,6 +494,8 @@ function UI:Refresh()
     y = BuildRows(self.content, y)
     y = BuildLootSection(self.content, y)
     self.content:SetHeight(math.abs(y) + 20)
+
+    UpdateEditButton()
 
     -- Update reset countdown
     self.frame.resetLabel:SetText("Reset in: " .. C_ORANGE .. ST:GetResetCountdown() .. C_RESET)
