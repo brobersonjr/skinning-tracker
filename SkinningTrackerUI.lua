@@ -157,7 +157,7 @@ local function BuildHeader(content)
             GameTooltip:SetText(beast.name, 1, 1, 1)
             GameTooltip:AddLine(zone, 0.8, 0.8, 0.8)
             GameTooltip:AddLine("Coords: " .. coords, 0.7, 0.9, 0.7)
-            GameTooltip:AddLine("Click checkboxes to toggle skinned state.", 0.6, 0.6, 0.6)
+            GameTooltip:AddLine("Progress is recorded automatically when skinned.", 0.6, 0.6, 0.6)
             GameTooltip:Show()
         end)
         bHeader:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -239,16 +239,9 @@ local function BuildRows(content, startY)
             local skinnedToday = ts and (ts >= lastReset)
             cb:SetChecked(skinnedToday)
 
-            if isCurrent then
-                local beastId = beast.id
-                cb:SetEnabled(true)
-                cb:SetScript("OnClick", function()
-                    ST:ToggleSkinned(beastId)
-                end)
-            else
-                cb:SetEnabled(false)
-                cb:SetScript("OnClick", nil)
-            end
+            -- Progress is automatic-only; checkboxes are read-only indicators.
+            cb:SetEnabled(false)
+            cb:SetScript("OnClick", nil)
             cb:Show()
         end
 

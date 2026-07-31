@@ -59,7 +59,7 @@ local function StillOurs(frame, lastText)
     return ok and current == lastText
 end
 
--- Called by ST:MarkSkinned / ST:ToggleSkinned and the UI ticker to keep every
+-- Called by ST:MarkSkinned and the UI ticker to keep every
 -- datatext panel live
 function ST:RefreshDataText()
     -- Clearing existing keys during traversal is well-defined in Lua; only

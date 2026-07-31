@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.7 - 2026-07-31
+- Make Renowned Beast checkmarks read-only now that automatic skinning detection is reliable.
+- Remove manual beast toggling and disable `/skt mark`; legacy uses now explain that progress is tracked automatically.
+
 ## 1.4.6 - 2026-07-29
 - Detect skinning through soft-target interact, so skinning with an interact keybind without hard-targeting the corpse is still tracked.
 - Harden the skinning spell check against a future client removing the `IsSpellKnown` global; behaviour on current clients is unchanged.
