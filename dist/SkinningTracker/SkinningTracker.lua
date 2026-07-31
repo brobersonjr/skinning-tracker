@@ -120,27 +120,10 @@ function ST:HasSkinnedToday(beastId)
     return ts >= self:GetLastResetTime()
 end
 
--- Mark a beast as skinned right now
+-- Record an automatically detected successful skinning
 function ST:MarkSkinned(beastId)
     local data = self:GetCharData()
     data.beasts[beastId] = self:GetServerNow()
-    if ST.UI and ST.UI.Refresh then
-        ST.UI:Refresh()
-    end
-    if ST.RefreshDataText then
-        ST:RefreshDataText()
-    end
-end
-
--- Toggle a beast's skinned state (for manual checking via UI)
-function ST:ToggleSkinned(beastId)
-    if self:HasSkinnedToday(beastId) then
-        -- Unmark: set timestamp to before last reset
-        self:GetCharData().beasts[beastId] = self:GetLastResetTime() - 1
-    else
-        self:MarkSkinned(beastId)
-        return -- MarkSkinned already calls RefreshDataText
-    end
     if ST.UI and ST.UI.Refresh then
         ST.UI:Refresh()
     end
@@ -238,21 +221,8 @@ local function SlashHandler(msg)
         print("|cff00ff96[SkinningTracker]|r Progress reset for " .. GetCharKey())
         if ST.UI and ST.UI.Refresh then ST.UI:Refresh() end
         if ST.RefreshDataText then ST:RefreshDataText() end
-    elseif cmd:sub(1, 4) == "mark" then
-        local beastName = strtrim(cmd:sub(5)):lower()
-        local found = false
-        for _, beast in ipairs(ST.BEASTS) do
-            if beast.name:lower() == beastName or beast.id == beastName then
-                ST:MarkSkinned(beast.id)
-                print("|cff00ff96[SkinningTracker]|r Manually marked |cffffff00" .. beast.name .. "|r as skinned.")
-                found = true
-                break
-            end
-        end
-        if not found then
-            print("|cff00ff96[SkinningTracker]|r Unknown beast: |cffff4444" .. beastName .. "|r")
-            print("Valid names: Gloomclaw, Silverscale, Lumenfin, Umbrafang, Netherscythe")
-        end
+    elseif cmd == "mark" or cmd:sub(1, 5) == "mark " then
+        print("|cff00ff96[SkinningTracker]|r Manual beast marking is unavailable; progress is tracked automatically.")
     elseif cmd == "debug" then
         ST.debug = not ST.debug
         local state = ST.debug and "|cff00ff96ON|r" or "|cffff4444OFF|r"
