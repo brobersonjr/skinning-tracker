@@ -49,7 +49,7 @@ local function freshDB()
     login()
 end
 
-local KEY = "Tester-Proudmoore"
+local KEY = "Tester-TestRealm"
 local BEAST = "gloomclaw"
 
 -- ---------------------------------------------------------------------------
@@ -190,12 +190,12 @@ eq("unmark is not parsed as mark", ST:HasSkinnedToday(BEAST), false)
 -- 8. Manual marks are per-character
 -- ---------------------------------------------------------------------------
 freshDB()
-SkinningTrackerDB["Alt-Proudmoore"] = {
+SkinningTrackerDB["Alt-TestRealm"] = {
     isMidnightSkinner = true, beasts = {}, items = {}, manualBeasts = {},
 }
 ST:ToggleSkinnedManual(BEAST)
 eq("alt is untouched by the current character's manual mark",
-    SkinningTrackerDB["Alt-Proudmoore"].beasts[BEAST], nil)
+    SkinningTrackerDB["Alt-TestRealm"].beasts[BEAST], nil)
 
 -- ---------------------------------------------------------------------------
 -- Report

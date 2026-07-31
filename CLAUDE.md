@@ -61,7 +61,7 @@ Earlier entries below were written before anything had been run in the client. C
 | Auto-detection drops the tint on a hand-marked beast (1.4.8) | ✅ confirmed — hand-marked Gloomclaw then skinned it; check went green → yellow |
 | Manual Edit re-locks when the window is closed (1.4.8) | ✅ confirmed |
 
-Owner plays on Proudmoore (US). Reset boundary is 15:00 UTC.
+Owner is on a US realm, so the reset boundary is 15:00 UTC.
 
 ## Sound System Notes
 `PlaySoundFile` with file paths does NOT work in Midnight — all audio is in CASC storage with no path access.
