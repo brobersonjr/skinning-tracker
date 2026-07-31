@@ -53,3 +53,7 @@ Beast names: `Gloomclaw`, `Silverscale`, `Lumenfin`, `Umbrafang`, `Netherscythe`
 - English clients only for now. Loot detection uses the client's own message formats, but the addon has not been tested against other locales.
 
 See [CHANGELOG.md](CHANGELOG.md) for release history.
+
+## License
+
+MIT — see [LICENSE](LICENSE). The license is included in the release ZIP as well.
