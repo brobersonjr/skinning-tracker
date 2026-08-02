@@ -82,6 +82,65 @@ function M.install(env)
     return env
 end
 
+-- ---------------------------------------------------------------------------
+-- Auctionator stub
+-- ---------------------------------------------------------------------------
+-- Mirrors the shape of the real v1 API rather than the addon's own wrapper, so
+-- the tests exercise the same access path the client does — including the fact
+-- that every entry point raises via error() on a bad caller ID or argument
+-- type, which is what the wrapper's pcall exists to absorb.
+
+M.prices = {}   -- itemId -> copper
+M.ages   = {}   -- itemId -> days since last scan
+M.auctionatorThrows = false  -- simulate an API that raises on every call
+M.auctionatorHasDB  = true   -- Auctionator loaded but DB not built yet
+
+-- opts.throws / opts.hasDB override the module defaults for one install
+function M.installAuctionator(env, opts)
+    opts = opts or {}
+    local throws = opts.throws
+    if throws == nil then throws = M.auctionatorThrows end
+    local hasDB = opts.hasDB
+    if hasDB == nil then hasDB = M.auctionatorHasDB end
+
+    local function verify(callerID, itemID)
+        if type(callerID) ~= "string" or callerID == "" then
+            error("Invalid callerID. Use the name of your add-on.")
+        end
+        if itemID ~= nil and type(itemID) ~= "number" then
+            error("Usage: expected a number")
+        end
+        if throws then error("simulated Auctionator failure") end
+    end
+
+    env.Auctionator = {
+        API = {
+            v1 = {
+                GetAuctionPriceByItemID = function(callerID, itemID)
+                    verify(callerID, itemID)
+                    if not hasDB then return nil end
+                    return M.prices[itemID]
+                end,
+                GetAuctionAgeByItemID = function(callerID, itemID)
+                    verify(callerID, itemID)
+                    if not hasDB then return nil end
+                    return M.ages[itemID]
+                end,
+                RegisterForDBUpdate = function(callerID, callback)
+                    verify(callerID)
+                    if type(callback) ~= "function" then error("Usage: expected a function") end
+                    M.dbUpdateCallback = callback
+                end,
+            },
+        },
+    }
+end
+
+function M.removeAuctionator(env)
+    env.Auctionator = nil
+    M.dbUpdateCallback = nil
+end
+
 -- Reset per-test state. Deliberately does NOT clear M.frames: the addon creates
 -- its event frames once at load, so dropping them would leave later tests with
 -- no PLAYER_LOGIN handler to fire.

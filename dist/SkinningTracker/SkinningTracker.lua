@@ -309,6 +309,37 @@ local function SlashHandler(msg)
             print("|cff00ff96[SkinningTracker]|r Unknown beast: |cffff4444" .. beastName .. "|r")
             print("Valid names: Gloomclaw, Silverscale, Lumenfin, Umbrafang, Netherscythe")
         end
+    elseif cmd == "gold" or cmd == "value" then
+        -- Chat equivalent of the window's gold readout. Prints the per-item
+        -- working so an unexpected total can be traced to a single price.
+        if not ST.HasPriceSource or not ST:HasPriceSource() then
+            print("|cff00ff96[SkinningTracker]|r Auctionator is not loaded, so there are no prices to value materials with.")
+            return
+        end
+        local anyRow = false
+        print("|cff00ff96[SkinningTracker]|r This session at last scanned prices:")
+        for _, item in ipairs(ST.MAJESTIC_ITEMS) do
+            local qty = ST.sessionItems[item.id] or 0
+            if qty > 0 then
+                anyRow = true
+                local price, age = ST:GetItemPrice(item.id)
+                if price then
+                    print(string.format("  |cffffff00%s|r x%d  ·  %s each  =  %s%s",
+                        item.name, qty, ST:FormatMoney(price), ST:FormatMoney(price * qty),
+                        age and string.format("  (scanned %dd ago)", age) or "  (scan over 21d old)"))
+                else
+                    print(string.format("  |cffffff00%s|r x%d  ·  |cffff4444no price|r — scan the auction house",
+                        item.name, qty))
+                end
+            end
+        end
+        if not anyRow then
+            print("  |cff888888Nothing looted yet this session.|r")
+            return
+        end
+        local copper, unpriced = ST:GetSessionValue()
+        print(string.format("  Session value: |cff00ff96%s|r%s",
+            ST:FormatMoney(copper), unpriced > 0 and " |cffff9900(incomplete — some materials have no price)|r" or ""))
     elseif cmd == "debug" then
         ST.debug = not ST.debug
         local state = ST.debug and "|cff00ff96ON|r" or "|cffff4444OFF|r"

@@ -13,7 +13,7 @@ WoW Midnight addon that tracks daily Renowned Beast skinning across profession s
 - **Audience: English-only clients for now. No localization work needed.**
 
 ## Coding Conventions
-- Lua only — no external dependencies beyond the WoW API and optional ElvUI
+- Lua only — no external dependencies beyond the WoW API and optional ElvUI/Auctionator
 - Keep all color constants local to each file (C_GREEN, C_YELLOW, etc.)
 - Use server time (`C_DateAndTime.GetServerTime()`) with a fallback to `time()`
 - Widget reuse pattern: create once, show/hide on refresh — never create frames inside Refresh()
@@ -60,6 +60,37 @@ Earlier entries below were written before anything had been run in the client. C
 | Green tint on a manual mark persists across `/reload` (1.4.8) | ✅ confirmed |
 | Auto-detection drops the tint on a hand-marked beast (1.4.8) | ✅ confirmed — hand-marked Gloomclaw then skinned it; check went green → yellow |
 | Manual Edit re-locks when the window is closed (1.4.8) | ✅ confirmed |
+| Addon loads with `SkinningTrackerPrices.lua`, no Lua errors (1.5.0) | ✅ confirmed |
+| Auctionator price lookup returns real prices (1.5.0) | ✅ confirmed — Claw 180g, Hide 2498g99s, Fin 910g35s |
+| Scan age reported per material (1.5.0) | ✅ confirmed — "scanned 0d ago" and "1d ago" both seen |
+| Session value increments as loot arrives (1.5.0) | ✅ confirmed — 0 → 540g → 5,537g across three skins |
+| Valuation arithmetic (1.5.0) | ✅ confirmed to the copper — 3×180 + 2×2498.99 = 5537g98s on screen |
+| Money formatting (1.5.0) | ✅ confirmed — `GetMoneyString` renders coin icons; short form truncates and separates thousands (`16,295g`) |
+| `/skt gold` output (1.5.0) | ✅ confirmed |
+| Session value with Auctionator absent — says so, no errors (1.5.0) | ✅ confirmed — disabled in game, `/skt` showed "Auctionator not found", re-enabled cleanly |
+| Session value clears on `/reload` (1.5.0) | ✅ confirmed — session counts and value both back to zero |
+| Lifetime column and figure gone; header back to `(session / total)` (1.5.0) | ✅ confirmed |
+| Refreshed scan prices are picked up (1.5.0) | ✅ confirmed — Majestic Claw valued at 180g in one session and 191g in a later one |
+| Total refreshes the instant an AH scan completes (1.5.0) | ⏳ unverified — **low risk**, see below |
+
+The scan-completion callback (`RegisterForDBUpdate`) is a latency optimisation,
+not a correctness requirement. The 30-second ticker, opening the window, and
+every Majestic loot all refresh the readout independently, so the worst case if
+the callback never fires is a number up to 30 seconds behind — never a wrong
+one. Shipped in 1.5.0 on that basis. To check it cheaply: Auctionator is
+registered for `IncrementalScan.PricesProcessed` as well as
+`FullScan.ScanComplete`, and the incremental event fires from ordinary auction
+house browsing, so a search for one Majestic material is enough — no full scan
+needed.
+
+The pricing-engine rows were confirmed against the build that still had the
+lifetime column; that code is byte-identical in the shipped build. The rows
+above were confirmed against the shipped build itself.
+
+Note when checking the "Auctionator absent" path from disk: `AddOns.txt` records
+the enable state at the time it was last written, so toggling an addon off,
+testing, and toggling it back on leaves the file reading `enabled`. It cannot be
+used after the fact to tell a passing negative test from a load-order bug.
 
 Owner plays on Proudmoore (US). Reset boundary is 15:00 UTC.
 
@@ -92,6 +123,87 @@ Current confirmed working Majestic loot alert:
 - Finding 1
 - Finding 2
 -->
+
+### [2026-08-02] Claude Opus 5 — Session gold via Auctionator (1.5.0)
+
+Values this session's Majestic materials from Auctionator's scanned prices. New
+file `SkinningTrackerPrices.lua` holds every Auctionator touchpoint, the way
+`SkinningTrackerElvUI.lua` holds every ElvUI one.
+
+**A lifetime gold figure was built and then deliberately removed. Do not add it
+back.** It was nearly free — the per-character `items` counts are already in
+SavedVariables — which is exactly the trap. Those counts **only ever
+increment**: nothing decrements them when materials are sold, mailed, vendored
+or crafted with. So `stored count × today's price` is neither the gold the
+player earned nor the worth of what is in their bags, and it drifts with the
+market for materials sold months ago. A number that means nothing precise is
+worse than no number, and no wording fixes it. Reporting real earnings needs
+prices banked at loot time, with its own state and its own decision about items
+looted while unpriced — a separate feature, not a column. A test asserts
+`ST.GetLifetimeValue` does not exist and that stored counts never leak into the
+session figure.
+
+**API facts, read from Auctionator's own source (v333), not from memory:**
+- `Auctionator.API.v1.GetAuctionPriceByItemID(callerID, itemID)` returns
+  `db[key].m` — the **minimum buyout** from the last scan. Not a mean, not a
+  market value. The v1 API exposes no average; `GetMeanPrice` is internal. Do
+  not describe these totals as an appraisal.
+- `GetAuctionAgeByItemID` returns days since last seen, and **nil past 21 days
+  or if never seen**. So "price present, age nil" means *very stale*, not fresh.
+  The UI says "last scan over 21 days ago" for that case rather than hiding it.
+- **Every v1 entry point raises via `error()`** — `InternalVerifyID` on a bad
+  caller ID, and the price/age calls again on a wrong argument type. Our callers
+  sit on the 30s UI ticker, so an uncaught raise would spam chat forever.
+  **`CallAuctionator` wraps every call in `pcall`. Do not remove it** — a
+  mutation test asserts a throwing API does not escape.
+- `RegisterForDBUpdate` registers a permanent listener with **no unregister**,
+  so it runs exactly once, at PLAYER_LOGIN deferred one frame (same pattern as
+  `InitElvUI`).
+
+**Design decisions to preserve:**
+- **Value is computed at display time, never banked at loot time.** A player who
+  skins for an hour and only then scans gets the whole session priced
+  retroactively; a loot-time snapshot would have recorded zeroes that could
+  never be repaired. The cost — the number moves when prices move — is the
+  honest reading of "what this haul is worth". **Do not "optimise" this into a
+  running total accumulated in the loot handler.**
+- **Nothing is written to SavedVariables.** Session value derives from
+  `ST.sessionItems`, already cleared at PLAYER_LOGIN, so "clears on logout or
+  /reload" needs no new state and no new schema field. A test asserts no
+  `sessionValue` key appears on the character row.
+- **`unpricedCount` is load-bearing, not cosmetic.** Without it a missing scan
+  silently understates the total and the player cannot tell a cheap session from
+  an unpriced one. It drives the `*` marker everywhere. Only items with a
+  **nonzero count** can be unpriced — a material that never dropped is not a gap
+  in the data, and a mutation dropping that guard fails four tests.
+- **A price of `0` is rejected as "no price", not treated as free.**
+- **Money formatting uses `%.0f` for the gold component, `%d` for silver and
+  copper.** Gold is the only unbounded part; a capped character holds ~10^11
+  copper, which is exact as a double but has no guaranteed integer
+  representation. `tostring` on a whole-number float also renders "1234567.0" in
+  some builds, which the separator loop would turn into "1,234,567.0".
+- `GetMoneyString` is preferred but pcall-guarded with an arithmetic fallback,
+  which is also what makes the formatter testable outside the client.
+- The loot section keeps its original 145px item columns. An earlier draft
+  narrowed them to 118 to fit a value column; that column is gone, so the
+  narrowing was reverted rather than left as unexplained dead layout.
+
+**Harness note for future passes:** fengari's integers wrap at **32 bits**, so
+`1234567 * 10000` overflows inside the VM. WoW's Lua 5.1 has no integer subtype
+at all — every number is a double — so a float literal is the *faithful* stand-in
+for what the client passes, not a workaround. The large-money test is written
+that way deliberately.
+
+**Verification:** all four source files and all three test files parse clean as
+Lua 5.1. 66 pricing tests pass alongside the 41 Manual Edit ones (107 total),
+covering Auctionator absent, present-but-no-database, a throwing API, full and
+partial pricing, zero prices, empty input, scan-age selection, untracked items,
+the real `CHAT_MSG_LOOT` path feeding the session figure, the AH-purchase
+rejection still holding, session clearing at login while stored counts survive,
+stored counts never leaking into the value, the scan callback, money formatting
+boundaries, and `/skt gold`. Mutation-checked: removing the `pcall`, dropping
+the `qty > 0` guard, and accepting a zero price each fail named tests. Frames,
+tooltips and the bottom-bar label are stubbed no-ops and still need the client.
 
 ### [2026-07-31] Claude Opus 5 — Manual Edit mode (1.4.8)
 1.4.7 made the checkmarks read-only. That removed the only recourse for a detection error in either direction: a miss could not be recorded, and a false positive could only be cleared with `/skt reset`, which wipes all five beasts. Since 1.4.4–1.4.6 were each detection-correctness fixes, treating detection as complete was premature. 1.4.8 restores a repair path without giving up the read-only default.

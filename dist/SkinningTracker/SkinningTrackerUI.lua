@@ -114,6 +114,17 @@ local function BuildFrame()
     resetLabel:SetFont("Fonts\\FRIZQT__.TTF", 11, "")
     f.resetLabel = resetLabel
 
+    -- Session and lifetime gold, centred between the countdown and the button.
+    -- EnableMouse so it can carry the price-breakdown tooltip; a FontString is
+    -- not interactive by default.
+    local goldLabel = bottomBar:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    goldLabel:SetPoint("CENTER", bottomBar, "CENTER", 0, 0)
+    goldLabel:SetFont("Fonts\\FRIZQT__.TTF", 11, "")
+    goldLabel:EnableMouse(true)
+    goldLabel:SetScript("OnEnter", function(self) UI:ShowGoldTooltip(self) end)
+    goldLabel:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    f.goldLabel = goldLabel
+
     local editBtn = CreateFrame("Button", nil, bottomBar, "UIPanelButtonTemplate")
     editBtn:SetSize(120, 22)
     editBtn:SetPoint("RIGHT", bottomBar, "RIGHT", 0, 0)
@@ -155,6 +166,90 @@ local function UpdateEditButton()
     local btn = UI.frame and UI.frame.editBtn
     if not btn then return end
     btn:SetText(UI.manualEdit and (C_ORANGE .. "Manual Edit: ON" .. C_RESET) or "Manual Edit")
+end
+
+-- ---------------------------------------------------------------------------
+-- Gold readout
+-- ---------------------------------------------------------------------------
+
+-- Value of this session's haul, in whole gold.
+--
+-- Recomputed on every refresh rather than banked when each item drops. That is
+-- deliberate: a player who skins for an hour and only then scans the auction
+-- house gets the whole session priced retroactively, where a snapshot taken at
+-- loot time would have recorded zeroes that could never be repaired. The trade
+-- is that the number moves when prices move, which is the honest reading of
+-- "what this haul is worth".
+local function UpdateGoldLabel()
+    local label = UI.frame and UI.frame.goldLabel
+    if not label then return end
+
+    if not ST.HasPriceSource or not ST:HasPriceSource() then
+        label:SetText(C_GREY .. "Session value: —  (Auctionator not found)" .. C_RESET)
+        return
+    end
+
+    local copper, unpriced = ST:GetSessionValue()
+    -- The asterisk means "at least one material has no scanned price, so this
+    -- total is a floor, not an answer".
+    local mark = unpriced > 0 and (C_ORANGE .. "*" .. C_RESET) or ""
+
+    label:SetText(C_GREY .. "Session value: " .. C_GREEN .. ST:FormatMoneyShort(copper) .. C_RESET .. mark)
+end
+
+-- Breakdown behind the bottom-bar figure: unit price and scan age per material,
+-- the exact total, and whatever is missing.
+function UI:ShowGoldTooltip(owner)
+    GameTooltip:SetOwner(owner, "ANCHOR_TOP")
+    GameTooltip:SetText("Session Value", 1, 1, 1)
+
+    if not ST.HasPriceSource or not ST:HasPriceSource() then
+        GameTooltip:AddLine("Auctionator is not loaded.", 1, 0.4, 0.4, true)
+        GameTooltip:AddLine("Install it and scan the auction house to see what this session's materials are worth.", 0.8, 0.8, 0.8, true)
+        GameTooltip:Show()
+        return
+    end
+
+    GameTooltip:AddLine(" ")
+    local anyRow = false
+    for _, item in ipairs(ST.MAJESTIC_ITEMS) do
+        local qty = ST.sessionItems[item.id] or 0
+        if qty > 0 then
+            anyRow = true
+            local price, age = ST:GetItemPrice(item.id)
+            if price then
+                GameTooltip:AddDoubleLine(
+                    item.name .. "  " .. C_GREY .. "x" .. qty .. C_RESET,
+                    ST:FormatMoney(price * qty),
+                    1, 1, 1, 1, 0.82, 0)
+                GameTooltip:AddLine("   " .. ST:FormatMoney(price) .. " each"
+                    .. (age and ("  ·  scanned " .. age .. "d ago") or "  ·  scan over 21d old"),
+                    (age and age < ST.PRICE_STALE_DAYS) and 0.6 or 1,
+                    0.6,
+                    (age and age < ST.PRICE_STALE_DAYS) and 0.6 or 0)
+            else
+                GameTooltip:AddDoubleLine(item.name .. "  " .. C_GREY .. "x" .. qty .. C_RESET,
+                    "no price", 1, 1, 1, 1, 0.27, 0.27)
+            end
+        end
+    end
+    if not anyRow then
+        GameTooltip:AddLine("Nothing looted yet this session.", 0.7, 0.7, 0.7)
+        GameTooltip:Show()
+        return
+    end
+
+    local copper, unpriced = ST:GetSessionValue()
+    GameTooltip:AddLine(" ")
+    GameTooltip:AddDoubleLine("Total", ST:FormatMoney(copper), 0.8, 0.8, 0.8, 0, 1, 0.59)
+
+    if unpriced > 0 then
+        GameTooltip:AddLine(" ")
+        GameTooltip:AddLine("* Some materials have no scanned price, so this total is low. Scan the auction house with Auctionator.", 1, 0.6, 0, true)
+    end
+    GameTooltip:AddLine(" ")
+    GameTooltip:AddLine("Clears on logout or /reload. Prices are the lowest current buyout.", 0.6, 0.6, 0.6, true)
+    GameTooltip:Show()
 end
 
 -- ---------------------------------------------------------------------------
@@ -412,17 +507,42 @@ local function BuildLootSection(content, startY)
     UI.loot.header:Show()
     y = y - ROW_HEIGHT
 
-    -- Item name column headers
+    -- Item name column headers, each carrying its own unit price on hover
     for i, item in ipairs(ST.MAJESTIC_ITEMS) do
         local x = COL_CHAR + (i - 1) * COL_ITEM
         local h = UI.loot.itemHeaders[i]
         if not h then
             h = MakeLabel(content, "", 10, "CENTER")
             h:SetWidth(COL_ITEM)
+            h:EnableMouse(true)
             UI.loot.itemHeaders[i] = h
         end
         h:SetPoint("TOPLEFT", content, "TOPLEFT", x, y)
         h:SetText(C_YELLOW .. item.name .. C_RESET)
+
+        local itemId, itemName = item.id, item.name
+        h:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_TOP")
+            GameTooltip:SetText(itemName, 1, 1, 1)
+            local price, age = ST:GetItemPrice(itemId)
+            if price then
+                GameTooltip:AddDoubleLine("Lowest buyout", ST:FormatMoney(price), 0.8, 0.8, 0.8, 1, 0.82, 0)
+                if age then
+                    -- Orange once the scan is old enough to distrust, grey while fresh
+                    local stale = age >= ST.PRICE_STALE_DAYS
+                    GameTooltip:AddLine("Scanned " .. age .. " day" .. (age == 1 and "" or "s") .. " ago",
+                        stale and 1 or 0.6, 0.6, stale and 0 or 0.6)
+                else
+                    GameTooltip:AddLine("Last scan over 21 days ago", 1, 0.6, 0)
+                end
+            elseif ST.HasPriceSource and ST:HasPriceSource() then
+                GameTooltip:AddLine("No scanned price. Scan the auction house with Auctionator.", 0.8, 0.8, 0.8, true)
+            else
+                GameTooltip:AddLine("Auctionator is not loaded.", 0.8, 0.8, 0.8, true)
+            end
+            GameTooltip:Show()
+        end)
+        h:SetScript("OnLeave", function() GameTooltip:Hide() end)
         h:Show()
     end
     for i = #ST.MAJESTIC_ITEMS + 1, #UI.loot.itemHeaders do
@@ -496,6 +616,7 @@ function UI:Refresh()
     self.content:SetHeight(math.abs(y) + 20)
 
     UpdateEditButton()
+    UpdateGoldLabel()
 
     -- Update reset countdown
     self.frame.resetLabel:SetText("Reset in: " .. C_ORANGE .. ST:GetResetCountdown() .. C_RESET)

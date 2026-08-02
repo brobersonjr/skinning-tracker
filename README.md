@@ -11,6 +11,7 @@ Five Renowned Beasts reset daily. This addon records which ones each of your cha
 - **Daily reset countdown**, read from the game client so it is correct in every region.
 - **Majestic loot counters** for Majestic Claw, Hide and Fin, per session and lifetime, with an audio cue on a drop.
 - **Manual Edit mode** for the rare case where detection gets it wrong — record a kill that was missed, or clear one that was recorded by mistake. Hand-entered marks show in green so you can tell them apart from detected ones.
+- **Session gold value** for what you have skinned since logging in, priced from your own Auctionator scans. Requires [Auctionator](https://www.curseforge.com/wow/addons/auctionator); without it the rest of the addon works exactly as before.
 - **Optional ElvUI datatext** showing remaining beasts on any panel.
 
 ## Installation
@@ -41,10 +42,22 @@ https://github.com/brobersonjr/skinning-tracker
 | `/skt toggle` | Manually flag this character as a Midnight skinner, if auto-detection missed it |
 | `/skt mark <beast>` | Record a beast as skinned today |
 | `/skt unmark <beast>` | Clear a beast that was recorded by mistake |
+| `/skt gold` | Print what this session's materials are worth |
 | `/skt reset` | Clear today's progress for this character |
 | `/skt debug` | Print event details while skinning, for troubleshooting |
 
 Beast names: `Gloomclaw`, `Silverscale`, `Lumenfin`, `Umbrafang`, `Netherscythe`.
+
+## Session gold value
+
+If [Auctionator](https://www.curseforge.com/wow/addons/auctionator) is installed, the tracker prices the Majestic materials you have looted since logging in, using whatever Auctionator last scanned on your realm.
+
+- **Scan the auction house** with Auctionator for prices to exist at all. Materials with no scanned price are marked `*` and named in the tooltip, so an incomplete total is never mistaken for a low one.
+- **Prices are the lowest current buyout**, which is what Auctionator's API exposes. Treat the total as "what this would fetch undercutting the cheapest listing", not as an appraisal.
+- **The value clears on logout or `/reload`**, like the session item counts it is built from. Nothing about it is saved.
+- The total updates as soon as a scan finishes — no need to reopen the window.
+
+**Only the session is valued, on purpose.** Lifetime item counts are still shown, but they are not priced. Those counts only ever go up — nothing subtracts from them when you sell, mail, vendor or craft with a material — so multiplying them by today's price would give a number that is neither the gold you earned nor the worth of what is actually in your bags. Reporting true earnings would mean recording the price at the moment of each drop, which is a different feature.
 
 ## Notes
 

@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.5.0 - 2026-08-02
+- Show what this session's skinning is worth, using the auction prices Auctionator has scanned on your realm. The tracker window's bottom bar now reads `Session value: ...`.
+- Session value clears on logout or `/reload`, exactly like the session item counts it is built from. Nothing about it is saved.
+- Hover the readout for a breakdown: each material's quantity, unit price, how long ago it was scanned, and the exact total. Hover an item name for that material's price on its own.
+- Add `/skt gold` (alias `/skt value`) to print the same breakdown in chat.
+- Materials with no scanned price are marked with `*` and named in the tooltip, so an unpriced total is never mistaken for a low one.
+- The total refreshes the moment an auction house scan finishes, so a session priced before you scanned corrects itself.
+- Auctionator is entirely optional. Without it the value readout simply says so and nothing else changes.
+- Only the session is valued. Lifetime item counts are still shown, but deliberately not priced: they only ever increment, so a gold figure built from them would be neither what you earned nor what you are holding.
+
 ## 1.4.9 - 2026-07-31
 - Set the addon author to `brobersonjr` instead of the placeholder `You`.
 - Rewrite the README: what the addon does, install instructions, and the full command list.
