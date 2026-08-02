@@ -70,7 +70,18 @@ Earlier entries below were written before anything had been run in the client. C
 | Session value with Auctionator absent — says so, no errors (1.5.0) | ✅ confirmed — disabled in game, `/skt` showed "Auctionator not found", re-enabled cleanly |
 | Session value clears on `/reload` (1.5.0) | ✅ confirmed — session counts and value both back to zero |
 | Lifetime column and figure gone; header back to `(session / total)` (1.5.0) | ✅ confirmed |
-| Total refreshes when an AH scan completes with the window open (1.5.0) | ⏳ unverified |
+| Refreshed scan prices are picked up (1.5.0) | ✅ confirmed — Majestic Claw valued at 180g in one session and 191g in a later one |
+| Total refreshes the instant an AH scan completes (1.5.0) | ⏳ unverified — **low risk**, see below |
+
+The scan-completion callback (`RegisterForDBUpdate`) is a latency optimisation,
+not a correctness requirement. The 30-second ticker, opening the window, and
+every Majestic loot all refresh the readout independently, so the worst case if
+the callback never fires is a number up to 30 seconds behind — never a wrong
+one. Shipped in 1.5.0 on that basis. To check it cheaply: Auctionator is
+registered for `IncrementalScan.PricesProcessed` as well as
+`FullScan.ScanComplete`, and the incremental event fires from ordinary auction
+house browsing, so a search for one Majestic material is enough — no full scan
+needed.
 
 The pricing-engine rows were confirmed against the build that still had the
 lifetime column; that code is byte-identical in the shipped build. The rows
