@@ -11,6 +11,7 @@ Five Renowned Beasts reset daily. This addon records which ones each of your cha
 - **Daily reset countdown**, read from the game client so it is correct in every region.
 - **Majestic loot counters** for Majestic Claw, Hide and Fin, per session and lifetime, with an audio cue on a drop.
 - **Manual Edit mode** for the rare case where detection gets it wrong — record a kill that was missed, or clear one that was recorded by mistake. Hand-entered marks show in green so you can tell them apart from detected ones.
+- **Gold value**, session and lifetime, priced from your own Auctionator scans. Requires [Auctionator](https://www.curseforge.com/wow/addons/auctionator); without it the rest of the addon works exactly as before.
 - **Optional ElvUI datatext** showing remaining beasts on any panel.
 
 ## Installation
@@ -41,10 +42,20 @@ https://github.com/brobersonjr/skinning-tracker
 | `/skt toggle` | Manually flag this character as a Midnight skinner, if auto-detection missed it |
 | `/skt mark <beast>` | Record a beast as skinned today |
 | `/skt unmark <beast>` | Clear a beast that was recorded by mistake |
+| `/skt gold` | Print what your Majestic materials are worth, session and lifetime |
 | `/skt reset` | Clear today's progress for this character |
 | `/skt debug` | Print event details while skinning, for troubleshooting |
 
 Beast names: `Gloomclaw`, `Silverscale`, `Lumenfin`, `Umbrafang`, `Netherscythe`.
+
+## Gold value
+
+If [Auctionator](https://www.curseforge.com/wow/addons/auctionator) is installed, the tracker prices your Majestic materials from whatever Auctionator last scanned on your realm, and shows a session and a lifetime total.
+
+- **Scan the auction house** with Auctionator for prices to exist at all. Materials with no scanned price are marked `*` and named in the tooltip, so an incomplete total is never mistaken for a low one.
+- **Prices are the lowest current buyout**, which is what Auctionator's API exposes. Treat the totals as "what this would fetch undercutting the cheapest listing", not as an appraisal.
+- **Session value clears on logout or `/reload`**, like the session item counts. Lifetime value is your stored per-character totals priced at today's numbers, so it moves as the market moves.
+- Totals update as soon as a scan finishes — no need to reopen the window.
 
 ## Notes
 

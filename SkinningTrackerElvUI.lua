@@ -131,6 +131,20 @@ local function OnEnter(self)
                 local qty = data.items[item.id] or 0
                 GameTooltip:AddDoubleLine(item.name, "x" .. qty, 1, 1, 1, qty > 0 and 1 or 0.5, qty > 0 and 1 or 0.5, qty > 0 and 0 or 0.5)
             end
+
+            -- Auctionator valuation, when it is installed and has prices.
+            -- Silent otherwise: this tooltip belongs to the beast tracker, and
+            -- a "no price data" line here would be noise for anyone who does
+            -- not use Auctionator at all.
+            if ST.HasPriceSource and ST:HasPriceSource() then
+                local sessionCopper,  sessionUnpriced  = ST:GetSessionValue()
+                local lifetimeCopper, lifetimeUnpriced = ST:GetLifetimeValue(data)
+                if sessionCopper > 0 or lifetimeCopper > 0 then
+                    local mark = (sessionUnpriced > 0 or lifetimeUnpriced > 0) and " *" or ""
+                    GameTooltip:AddDoubleLine("Session value", ST:FormatMoney(sessionCopper) .. mark, 0.8, 0.8, 0.8, 0, 1, 0.59)
+                    GameTooltip:AddDoubleLine("Lifetime value", ST:FormatMoney(lifetimeCopper) .. mark, 0.8, 0.8, 0.8, 1, 1, 1)
+                end
+            end
         end
     end
 

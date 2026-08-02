@@ -309,6 +309,43 @@ local function SlashHandler(msg)
             print("|cff00ff96[SkinningTracker]|r Unknown beast: |cffff4444" .. beastName .. "|r")
             print("Valid names: Gloomclaw, Silverscale, Lumenfin, Umbrafang, Netherscythe")
         end
+    elseif cmd == "gold" or cmd == "value" then
+        -- Chat equivalent of the window's gold readout. Prints the per-item
+        -- working so an unexpected total can be traced to a single price.
+        if not ST.HasPriceSource or not ST:HasPriceSource() then
+            print("|cff00ff96[SkinningTracker]|r Auctionator is not loaded, so there are no prices to value materials with.")
+            return
+        end
+        local data = ST:GetCharData()
+        local anyRow = false
+        print("|cff00ff96[SkinningTracker]|r Majestic value at last scanned prices:")
+        for _, item in ipairs(ST.MAJESTIC_ITEMS) do
+            local session  = ST.sessionItems[item.id] or 0
+            local lifetime = (data and data.items and data.items[item.id]) or 0
+            if session > 0 or lifetime > 0 then
+                anyRow = true
+                local price, age = ST:GetItemPrice(item.id)
+                if price then
+                    print(string.format("  |cffffff00%s|r  %s each  ·  session %d = %s  ·  lifetime %d = %s%s",
+                        item.name, ST:FormatMoney(price),
+                        session,  ST:FormatMoney(price * session),
+                        lifetime, ST:FormatMoney(price * lifetime),
+                        age and string.format("  (scanned %dd ago)", age) or "  (scan over 21d old)"))
+                else
+                    print(string.format("  |cffffff00%s|r  |cffff4444no price|r — scan the auction house (session %d, lifetime %d)",
+                        item.name, session, lifetime))
+                end
+            end
+        end
+        if not anyRow then
+            print("  |cff888888No Majestic materials looted yet.|r")
+            return
+        end
+        local sessionCopper,  sessionUnpriced  = ST:GetSessionValue()
+        local lifetimeCopper, lifetimeUnpriced = ST:GetLifetimeValue()
+        print(string.format("  Session: |cff00ff96%s|r%s   Lifetime: |cffffffff%s|r%s",
+            ST:FormatMoney(sessionCopper),  sessionUnpriced  > 0 and " |cffff9900(incomplete)|r" or "",
+            ST:FormatMoney(lifetimeCopper), lifetimeUnpriced > 0 and " |cffff9900(incomplete)|r" or ""))
     elseif cmd == "debug" then
         ST.debug = not ST.debug
         local state = ST.debug and "|cff00ff96ON|r" or "|cffff4444OFF|r"
