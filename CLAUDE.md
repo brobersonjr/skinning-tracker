@@ -60,10 +60,22 @@ Earlier entries below were written before anything had been run in the client. C
 | Green tint on a manual mark persists across `/reload` (1.4.8) | ✅ confirmed |
 | Auto-detection drops the tint on a hand-marked beast (1.4.8) | ✅ confirmed — hand-marked Gloomclaw then skinned it; check went green → yellow |
 | Manual Edit re-locks when the window is closed (1.4.8) | ✅ confirmed |
-| Session value with Auctionator installed and scanned (1.5.0) | ⏳ unverified |
+| Addon loads with `SkinningTrackerPrices.lua`, no Lua errors (1.5.0) | ✅ confirmed |
+| Auctionator price lookup returns real prices (1.5.0) | ✅ confirmed — Claw 180g, Hide 2498g99s, Fin 910g35s |
+| Scan age reported per material (1.5.0) | ✅ confirmed — "scanned 0d ago" and "1d ago" both seen |
+| Session value increments as loot arrives (1.5.0) | ✅ confirmed — 0 → 540g → 5,537g across three skins |
+| Valuation arithmetic (1.5.0) | ✅ confirmed to the copper — 3×180 + 2×2498.99 = 5537g98s on screen |
+| Money formatting (1.5.0) | ✅ confirmed — `GetMoneyString` renders coin icons; short form truncates and separates thousands (`16,295g`) |
+| `/skt gold` output (1.5.0) | ✅ confirmed |
 | Session value with Auctionator absent — says so, no errors (1.5.0) | ⏳ unverified |
 | Session value clears on `/reload` (1.5.0) | ⏳ unverified |
-| Total refreshes when an AH scan completes (1.5.0) | ⏳ unverified |
+| Total refreshes when an AH scan completes with the window open (1.5.0) | ⏳ unverified |
+
+The 1.5.0 rows above were confirmed against the build that still had the
+lifetime column. The pricing engine, formatters and loot path are byte-identical
+in the shipped build; only the presentation changed (label wording, tooltip
+layout, `/skt gold` lines), so the revised presentation itself is not yet
+confirmed in the client.
 
 Owner plays on Proudmoore (US). Reset boundary is 15:00 UTC.
 
