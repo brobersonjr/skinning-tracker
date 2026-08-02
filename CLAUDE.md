@@ -67,15 +67,19 @@ Earlier entries below were written before anything had been run in the client. C
 | Valuation arithmetic (1.5.0) | ✅ confirmed to the copper — 3×180 + 2×2498.99 = 5537g98s on screen |
 | Money formatting (1.5.0) | ✅ confirmed — `GetMoneyString` renders coin icons; short form truncates and separates thousands (`16,295g`) |
 | `/skt gold` output (1.5.0) | ✅ confirmed |
-| Session value with Auctionator absent — says so, no errors (1.5.0) | ⏳ unverified |
-| Session value clears on `/reload` (1.5.0) | ⏳ unverified |
+| Session value with Auctionator absent — says so, no errors (1.5.0) | ✅ confirmed — disabled in game, `/skt` showed "Auctionator not found", re-enabled cleanly |
+| Session value clears on `/reload` (1.5.0) | ✅ confirmed — session counts and value both back to zero |
+| Lifetime column and figure gone; header back to `(session / total)` (1.5.0) | ✅ confirmed |
 | Total refreshes when an AH scan completes with the window open (1.5.0) | ⏳ unverified |
 
-The 1.5.0 rows above were confirmed against the build that still had the
-lifetime column. The pricing engine, formatters and loot path are byte-identical
-in the shipped build; only the presentation changed (label wording, tooltip
-layout, `/skt gold` lines), so the revised presentation itself is not yet
-confirmed in the client.
+The pricing-engine rows were confirmed against the build that still had the
+lifetime column; that code is byte-identical in the shipped build. The rows
+above were confirmed against the shipped build itself.
+
+Note when checking the "Auctionator absent" path from disk: `AddOns.txt` records
+the enable state at the time it was last written, so toggling an addon off,
+testing, and toggling it back on leaves the file reading `enabled`. It cannot be
+used after the fact to tell a passing negative test from a load-order bug.
 
 Owner plays on Proudmoore (US). Reset boundary is 15:00 UTC.
 
