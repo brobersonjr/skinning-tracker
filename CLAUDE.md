@@ -60,11 +60,10 @@ Earlier entries below were written before anything had been run in the client. C
 | Green tint on a manual mark persists across `/reload` (1.4.8) | ✅ confirmed |
 | Auto-detection drops the tint on a hand-marked beast (1.4.8) | ✅ confirmed — hand-marked Gloomclaw then skinned it; check went green → yellow |
 | Manual Edit re-locks when the window is closed (1.4.8) | ✅ confirmed |
-| Gold readout with Auctionator installed and scanned (1.5.0) | ⏳ unverified |
-| Gold readout with Auctionator absent — says so, no errors (1.5.0) | ⏳ unverified |
-| Session value clears on `/reload`, lifetime survives (1.5.0) | ⏳ unverified |
-| Totals refresh when an AH scan completes (1.5.0) | ⏳ unverified |
-| Loot value column fits without clipping at 700px (1.5.0) | ⏳ unverified |
+| Session value with Auctionator installed and scanned (1.5.0) | ⏳ unverified |
+| Session value with Auctionator absent — says so, no errors (1.5.0) | ⏳ unverified |
+| Session value clears on `/reload` (1.5.0) | ⏳ unverified |
+| Total refreshes when an AH scan completes (1.5.0) | ⏳ unverified |
 
 Owner plays on Proudmoore (US). Reset boundary is 15:00 UTC.
 
@@ -98,11 +97,24 @@ Current confirmed working Majestic loot alert:
 - Finding 2
 -->
 
-### [2026-08-02] Claude Opus 5 — Session and lifetime gold via Auctionator (1.5.0)
+### [2026-08-02] Claude Opus 5 — Session gold via Auctionator (1.5.0)
 
-Values Majestic materials from Auctionator's scanned prices. New file
-`SkinningTrackerPrices.lua` holds every Auctionator touchpoint, the way
+Values this session's Majestic materials from Auctionator's scanned prices. New
+file `SkinningTrackerPrices.lua` holds every Auctionator touchpoint, the way
 `SkinningTrackerElvUI.lua` holds every ElvUI one.
+
+**A lifetime gold figure was built and then deliberately removed. Do not add it
+back.** It was nearly free — the per-character `items` counts are already in
+SavedVariables — which is exactly the trap. Those counts **only ever
+increment**: nothing decrements them when materials are sold, mailed, vendored
+or crafted with. So `stored count × today's price` is neither the gold the
+player earned nor the worth of what is in their bags, and it drifts with the
+market for materials sold months ago. A number that means nothing precise is
+worse than no number, and no wording fixes it. Reporting real earnings needs
+prices banked at loot time, with its own state and its own decision about items
+looted while unpriced — a separate feature, not a column. A test asserts
+`ST.GetLifetimeValue` does not exist and that stored counts never leak into the
+session figure.
 
 **API facts, read from Auctionator's own source (v333), not from memory:**
 - `Auctionator.API.v1.GetAuctionPriceByItemID(callerID, itemID)` returns
@@ -138,8 +150,6 @@ Values Majestic materials from Auctionator's scanned prices. New file
   **nonzero count** can be unpriced — a material that never dropped is not a gap
   in the data, and a mutation dropping that guard fails four tests.
 - **A price of `0` is rejected as "no price", not treated as free.**
-- Lifetime value is per character and valued from each row's stored `items`, so
-  alts get a column too. `GetLifetimeValue` takes an optional charData for that.
 - **Money formatting uses `%.0f` for the gold component, `%d` for silver and
   copper.** Gold is the only unbounded part; a capped character holds ~10^11
   copper, which is exact as a double but has no guaranteed integer
@@ -147,8 +157,9 @@ Values Majestic materials from Auctionator's scanned prices. New file
   some builds, which the separator loop would turn into "1,234,567.0".
 - `GetMoneyString` is preferred but pcall-guarded with an arithmetic fallback,
   which is also what makes the formatter testable outside the client.
-- Loot item columns narrowed 145 → 118 to fit the 96px value column in the same
-  660px content width as the beast grid above (210 + 3*118 + 96 = 660).
+- The loot section keeps its original 145px item columns. An earlier draft
+  narrowed them to 118 to fit a value column; that column is gone, so the
+  narrowing was reverted rather than left as unexplained dead layout.
 
 **Harness note for future passes:** fengari's integers wrap at **32 bits**, so
 `1234567 * 10000` overflows inside the VM. WoW's Lua 5.1 has no integer subtype
@@ -157,15 +168,15 @@ for what the client passes, not a workaround. The large-money test is written
 that way deliberately.
 
 **Verification:** all four source files and all three test files parse clean as
-Lua 5.1. 68 new pricing tests pass alongside the 41 Manual Edit ones (109
-total), covering Auctionator absent, present-but-no-database, a throwing API,
-full and partial pricing, zero prices, empty input, scan-age selection,
-untracked items, the real `CHAT_MSG_LOOT` path feeding both figures, the
-AH-purchase rejection still holding, session clearing at login while lifetime
-survives, alt isolation, the scan callback, money formatting boundaries, and
-`/skt gold`. Mutation-checked: removing the `pcall`, dropping the `qty > 0`
-guard, and accepting a zero price each fail named tests. Frames, tooltips and
-the bottom-bar label are stubbed no-ops and still need the client.
+Lua 5.1. 66 pricing tests pass alongside the 41 Manual Edit ones (107 total),
+covering Auctionator absent, present-but-no-database, a throwing API, full and
+partial pricing, zero prices, empty input, scan-age selection, untracked items,
+the real `CHAT_MSG_LOOT` path feeding the session figure, the AH-purchase
+rejection still holding, session clearing at login while stored counts survive,
+stored counts never leaking into the value, the scan callback, money formatting
+boundaries, and `/skt gold`. Mutation-checked: removing the `pcall`, dropping
+the `qty > 0` guard, and accepting a zero price each fail named tests. Frames,
+tooltips and the bottom-bar label are stubbed no-ops and still need the client.
 
 ### [2026-07-31] Claude Opus 5 — Manual Edit mode (1.4.8)
 1.4.7 made the checkmarks read-only. That removed the only recourse for a detection error in either direction: a miss could not be recorded, and a false positive could only be cleared with `/skt reset`, which wipes all five beasts. Since 1.4.4–1.4.6 were each detection-correctness fixes, treating detection as complete was premature. 1.4.8 restores a repair path without giving up the read-only default.

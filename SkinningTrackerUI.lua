@@ -19,11 +19,7 @@ local FRAME_HEIGHT = 480
 local ROW_HEIGHT   = 20
 local COL_CHAR     = 210  -- character column width
 local COL_BEAST    = 90   -- each beast column width
--- Item columns were 145 wide before the value column was added. The loot grid
--- has to fit the same 660px of content as the beast grid above it
--- (210 + 3*118 + 96 = 660), so widening the value column means narrowing these.
-local COL_ITEM     = 118  -- each item count column width
-local COL_VALUE    = 96   -- lifetime gold value column width
+local COL_ITEM     = 145  -- each item count column width
 
 -- ---------------------------------------------------------------------------
 -- Helper: create a FontString label
@@ -176,93 +172,83 @@ end
 -- Gold readout
 -- ---------------------------------------------------------------------------
 
--- Session and lifetime value for the current character, in whole gold.
+-- Value of this session's haul, in whole gold.
 --
--- Values are recomputed on every refresh rather than banked when each item
--- drops. That is deliberate: a player who skins for an hour and only then scans
--- the auction house gets the whole session priced retroactively, where a
--- snapshot taken at loot time would have recorded zeroes that could never be
--- repaired. The trade is that the number moves when prices move, which is the
--- honest reading of "what this haul is worth".
+-- Recomputed on every refresh rather than banked when each item drops. That is
+-- deliberate: a player who skins for an hour and only then scans the auction
+-- house gets the whole session priced retroactively, where a snapshot taken at
+-- loot time would have recorded zeroes that could never be repaired. The trade
+-- is that the number moves when prices move, which is the honest reading of
+-- "what this haul is worth".
 local function UpdateGoldLabel()
     local label = UI.frame and UI.frame.goldLabel
     if not label then return end
 
     if not ST.HasPriceSource or not ST:HasPriceSource() then
-        label:SetText(C_GREY .. "Session: —  (Auctionator not found)" .. C_RESET)
+        label:SetText(C_GREY .. "Session value: —  (Auctionator not found)" .. C_RESET)
         return
     end
 
-    local sessionCopper,  sessionUnpriced  = ST:GetSessionValue()
-    local lifetimeCopper, lifetimeUnpriced = ST:GetLifetimeValue()
+    local copper, unpriced = ST:GetSessionValue()
+    -- The asterisk means "at least one material has no scanned price, so this
+    -- total is a floor, not an answer".
+    local mark = unpriced > 0 and (C_ORANGE .. "*" .. C_RESET) or ""
 
-    -- One asterisk covers both figures: it means "at least one material has no
-    -- scanned price, so these totals are floors, not answers".
-    local mark = (sessionUnpriced > 0 or lifetimeUnpriced > 0) and (C_ORANGE .. "*" .. C_RESET) or ""
-
-    label:SetText(
-        C_GREY .. "Session: " .. C_GREEN .. ST:FormatMoneyShort(sessionCopper) .. C_RESET
-        .. C_GREY .. "   ·   Lifetime: " .. C_WHITE .. ST:FormatMoneyShort(lifetimeCopper) .. C_RESET
-        .. mark
-    )
+    label:SetText(C_GREY .. "Session value: " .. C_GREEN .. ST:FormatMoneyShort(copper) .. C_RESET .. mark)
 end
 
--- Breakdown behind the bottom-bar figures: unit price and scan age per item,
--- exact totals, and whatever is missing.
+-- Breakdown behind the bottom-bar figure: unit price and scan age per material,
+-- the exact total, and whatever is missing.
 function UI:ShowGoldTooltip(owner)
     GameTooltip:SetOwner(owner, "ANCHOR_TOP")
-    GameTooltip:SetText("Majestic Value", 1, 1, 1)
+    GameTooltip:SetText("Session Value", 1, 1, 1)
 
     if not ST.HasPriceSource or not ST:HasPriceSource() then
         GameTooltip:AddLine("Auctionator is not loaded.", 1, 0.4, 0.4, true)
-        GameTooltip:AddLine("Install it and scan the auction house to see what your materials are worth.", 0.8, 0.8, 0.8, true)
+        GameTooltip:AddLine("Install it and scan the auction house to see what this session's materials are worth.", 0.8, 0.8, 0.8, true)
         GameTooltip:Show()
         return
     end
 
-    local data = ST:GetCharData()
     GameTooltip:AddLine(" ")
     local anyRow = false
     for _, item in ipairs(ST.MAJESTIC_ITEMS) do
-        local session  = ST.sessionItems[item.id] or 0
-        local lifetime = (data and data.items and data.items[item.id]) or 0
-        if session > 0 or lifetime > 0 then
+        local qty = ST.sessionItems[item.id] or 0
+        if qty > 0 then
             anyRow = true
             local price, age = ST:GetItemPrice(item.id)
             if price then
                 GameTooltip:AddDoubleLine(
-                    item.name .. "  " .. C_GREY .. "(" .. session .. " / " .. lifetime .. ")" .. C_RESET,
-                    ST:FormatMoney(price) .. " ea",
+                    item.name .. "  " .. C_GREY .. "x" .. qty .. C_RESET,
+                    ST:FormatMoney(price * qty),
                     1, 1, 1, 1, 0.82, 0)
-                if age and age >= ST.PRICE_STALE_DAYS then
-                    GameTooltip:AddLine("   last scanned " .. age .. " days ago", 1, 0.6, 0)
-                elseif not age then
-                    GameTooltip:AddLine("   last scan over 21 days old", 1, 0.6, 0)
-                end
+                GameTooltip:AddLine("   " .. ST:FormatMoney(price) .. " each"
+                    .. (age and ("  ·  scanned " .. age .. "d ago") or "  ·  scan over 21d old"),
+                    (age and age < ST.PRICE_STALE_DAYS) and 0.6 or 1,
+                    0.6,
+                    (age and age < ST.PRICE_STALE_DAYS) and 0.6 or 0)
             else
-                GameTooltip:AddDoubleLine(item.name, "no price", 1, 1, 1, 1, 0.27, 0.27)
+                GameTooltip:AddDoubleLine(item.name .. "  " .. C_GREY .. "x" .. qty .. C_RESET,
+                    "no price", 1, 1, 1, 1, 0.27, 0.27)
             end
         end
     end
     if not anyRow then
-        GameTooltip:AddLine("No Majestic materials looted yet.", 0.7, 0.7, 0.7)
+        GameTooltip:AddLine("Nothing looted yet this session.", 0.7, 0.7, 0.7)
         GameTooltip:Show()
         return
     end
 
-    local sessionCopper,  sessionUnpriced  = ST:GetSessionValue()
-    local lifetimeCopper, lifetimeUnpriced = ST:GetLifetimeValue()
-
+    local copper, unpriced = ST:GetSessionValue()
     GameTooltip:AddLine(" ")
-    GameTooltip:AddDoubleLine("Session", ST:FormatMoney(sessionCopper), 0.8, 0.8, 0.8, 0, 1, 0.59)
-    GameTooltip:AddDoubleLine("Lifetime", ST:FormatMoney(lifetimeCopper), 0.8, 0.8, 0.8, 1, 1, 1)
+    GameTooltip:AddDoubleLine("Total", ST:FormatMoney(copper), 0.8, 0.8, 0.8, 0, 1, 0.59)
 
-    if sessionUnpriced > 0 or lifetimeUnpriced > 0 then
+    if unpriced > 0 then
         GameTooltip:AddLine(" ")
-        GameTooltip:AddLine("* Some materials have no scanned price, so these totals are low. Scan the auction house with Auctionator.", 1, 0.6, 0, true)
+        GameTooltip:AddLine("* Some materials have no scanned price, so this total is low. Scan the auction house with Auctionator.", 1, 0.6, 0, true)
     end
     GameTooltip:AddLine(" ")
-    GameTooltip:AddLine("Session clears on logout or /reload. Prices are the lowest current buyout.", 0.6, 0.6, 0.6, true)
+    GameTooltip:AddLine("Clears on logout or /reload. Prices are the lowest current buyout.", 0.6, 0.6, 0.6, true)
     GameTooltip:Show()
 end
 
@@ -517,7 +503,7 @@ local function BuildLootSection(content, startY)
         UI.loot.header = MakeLabel(content, "", 12, "LEFT")
     end
     UI.loot.header:SetPoint("TOPLEFT", content, "TOPLEFT", 4, y)
-    UI.loot.header:SetText(C_YELLOW .. "Item Counts" .. C_GREY .. "  (session / total · value is lifetime)" .. C_RESET)
+    UI.loot.header:SetText(C_YELLOW .. "Item Counts" .. C_GREY .. "  (session / total)" .. C_RESET)
     UI.loot.header:Show()
     y = y - ROW_HEIGHT
 
@@ -562,15 +548,6 @@ local function BuildLootSection(content, startY)
     for i = #ST.MAJESTIC_ITEMS + 1, #UI.loot.itemHeaders do
         UI.loot.itemHeaders[i]:Hide()
     end
-
-    -- Value column header
-    if not UI.loot.valueHeader then
-        UI.loot.valueHeader = MakeLabel(content, "", 10, "CENTER")
-        UI.loot.valueHeader:SetWidth(COL_VALUE)
-    end
-    UI.loot.valueHeader:SetPoint("TOPLEFT", content, "TOPLEFT", COL_CHAR + #ST.MAJESTIC_ITEMS * COL_ITEM, y)
-    UI.loot.valueHeader:SetText(C_YELLOW .. "Value" .. C_RESET)
-    UI.loot.valueHeader:Show()
     y = y - ROW_HEIGHT
 
     -- Per-character rows
@@ -612,24 +589,6 @@ local function BuildLootSection(content, startY)
             row.counts[j]:Hide()
         end
 
-        -- Lifetime value for this character. Every character gets one, not just
-        -- the current one: the point of the column is comparing alts, and their
-        -- stored counts are already there to be valued.
-        if not row.valueLabel then
-            row.valueLabel = MakeLabel(content, "", 11, "CENTER")
-            row.valueLabel:SetWidth(COL_VALUE)
-        end
-        row.valueLabel:SetPoint("TOPLEFT", content, "TOPLEFT",
-            COL_CHAR + #ST.MAJESTIC_ITEMS * COL_ITEM, y)
-        if ST.HasPriceSource and ST:HasPriceSource() then
-            local copper, unpriced = ST:GetLifetimeValue(charData)
-            row.valueLabel:SetText(C_WHITE .. ST:FormatMoneyShort(copper) .. C_RESET
-                .. (unpriced > 0 and (C_ORANGE .. "*" .. C_RESET) or ""))
-        else
-            row.valueLabel:SetText(C_GREY .. "—" .. C_RESET)
-        end
-        row.valueLabel:Show()
-
         y = y - ROW_HEIGHT
     end
 
@@ -640,7 +599,6 @@ local function BuildLootSection(content, startY)
         for _, label in ipairs(row.counts) do
             label:Hide()
         end
-        if row.valueLabel then row.valueLabel:Hide() end
     end
 
     return y

@@ -105,15 +105,17 @@ end
 -- Value of what the current character has looted since login. ST.sessionItems
 -- is cleared at PLAYER_LOGIN, so this figure disappears on logout or /reload
 -- with no extra bookkeeping and nothing written to SavedVariables.
+--
+-- Session is deliberately the ONLY thing valued. The stored per-character
+-- `items` counts look like they could give a lifetime figure for free, but they
+-- only ever increment: nothing decrements them when materials are sold, mailed,
+-- vendored or crafted with. Multiplying them by today's price would produce a
+-- number that is neither gold earned nor the value of what is actually in the
+-- bags, and it would move with the market for materials long since sold.
+-- Reporting realized earnings needs prices banked at loot time, which is a
+-- different feature with its own state.
 function ST:GetSessionValue()
     return ST:GetValueOf(ST.sessionItems)
-end
-
--- Value of a character's lifetime Majestic total. Defaults to the current
--- character; the UI passes another character's row to value alts.
-function ST:GetLifetimeValue(charData)
-    charData = charData or ST:GetCharData()
-    return ST:GetValueOf(charData and charData.items)
 end
 
 -- ---------------------------------------------------------------------------

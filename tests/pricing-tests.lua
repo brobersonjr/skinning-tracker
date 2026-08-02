@@ -115,7 +115,7 @@ eq("throwing API values at zero", copper, 0)
 eq("throwing API reports unpriced", unpriced, 1)
 
 -- ---------------------------------------------------------------------------
--- 4. Fully priced session and lifetime
+-- 4. Fully priced session
 -- ---------------------------------------------------------------------------
 fresh()
 stubs.prices[CLAW] = 12 * GOLD
@@ -124,20 +124,21 @@ stubs.prices[FIN]  = 7 * GOLD
 
 ST.sessionItems[CLAW] = 4      -- 48g
 ST.sessionItems[HIDE] = 2      -- 60g
-charData().items[CLAW] = 10    -- 120g
-charData().items[HIDE] = 5     -- 150g
-charData().items[FIN]  = 3     -- 21g
 
 copper, unpriced = ST:GetSessionValue()
 eq("session value sums priced counts", copper, 108 * GOLD)
 eq("session value has nothing unpriced", unpriced, 0)
 
-copper, unpriced = ST:GetLifetimeValue()
-eq("lifetime value sums stored counts", copper, 291 * GOLD)
-eq("lifetime value has nothing unpriced", unpriced, 0)
-
 -- Items that never dropped are not a gap in the data
 eq("zero-count items are not counted as unpriced", select(2, ST:GetSessionValue()), 0)
+
+-- Stored lifetime counts must NOT be valued anywhere. They only ever increment,
+-- so a figure built from them would be neither gold earned nor the worth of
+-- what is actually in the bags. Removed in review; this guards the regression.
+charData().items[CLAW] = 100
+eq("stored item counts do not leak into the session value",
+    ST:GetSessionValue(), 108 * GOLD)
+eq("no lifetime valuation helper is exposed", ST.GetLifetimeValue, nil)
 
 -- ---------------------------------------------------------------------------
 -- 5. Partial pricing understates, and says so
@@ -169,8 +170,7 @@ copper, unpriced = ST:GetSessionValue()
 eq("empty session values at zero", copper, 0)
 eq("empty session has nothing unpriced", unpriced, 0)
 eq("GetValueOf tolerates nil", ST:GetValueOf(nil), 0)
-eq("GetLifetimeValue tolerates a row with no items table",
-    ST:GetLifetimeValue({ isMidnightSkinner = true, beasts = {} }), 0)
+eq("GetValueOf tolerates a non-table", ST:GetValueOf("nonsense"), 0)
 
 -- ---------------------------------------------------------------------------
 -- 7. Scan age: the worst age across priced materials wins
@@ -203,7 +203,7 @@ copper = ST:GetValueOf({ [CLAW] = 1, [99999] = 10 })
 eq("untracked items in the count table are ignored", copper, 12 * GOLD)
 
 -- ---------------------------------------------------------------------------
--- 9. The real loot path feeds both figures
+-- 9. The real loot path feeds the session value
 -- ---------------------------------------------------------------------------
 fresh()
 stubs.prices[CLAW] = 25 * GOLD
@@ -212,32 +212,23 @@ fireLoot("You receive loot: |cffa335ee|Hitem:238528:0:0:0:0:0:0:0:0:0:0|h[Majest
 fireLoot("You receive loot: |cffa335ee|Hitem:238528:0:0:0:0:0:0:0:0:0:0|h[Majestic Claw]|h|rx3.")
 eq("loot handler recorded the session count", ST.sessionItems[CLAW], 4)
 eq("session value follows the loot handler", ST:GetSessionValue(), 100 * GOLD)
-eq("lifetime value follows the loot handler", ST:GetLifetimeValue(), 100 * GOLD)
 
--- An auction house purchase must not inflate either figure
+-- An auction house purchase must not inflate the figure
 fireLoot("You receive item: |cffa335ee|Hitem:238528:0:0:0:0:0:0:0:0:0:0|h[Majestic Claw]|h|rx50.")
 eq("a bought stack does not change the session value", ST:GetSessionValue(), 100 * GOLD)
 
 -- ---------------------------------------------------------------------------
--- 10. Session value is session-only; lifetime survives
+-- 10. Session value is session-only
 -- ---------------------------------------------------------------------------
+local storedBefore = charData().items[CLAW]
 login() -- a fresh login on the same character, as /reload or a relog would be
 eq("session value is cleared by login", ST:GetSessionValue(), 0)
-eq("lifetime value survives login", ST:GetLifetimeValue(), 100 * GOLD)
+eq("the stored item count still survives login", charData().items[CLAW], storedBefore)
 eq("nothing was written to SavedVariables for the session",
     SkinningTrackerDB[ST:GetCharKey()].sessionValue, nil)
 
 -- ---------------------------------------------------------------------------
--- 11. Alts are valued from their own stored counts
--- ---------------------------------------------------------------------------
-fresh()
-stubs.prices[CLAW] = 10 * GOLD
-local alt = { isMidnightSkinner = true, beasts = {}, items = { [CLAW] = 7 }, manualBeasts = {} }
-eq("an alt row is valued independently", ST:GetLifetimeValue(alt), 70 * GOLD)
-eq("valuing an alt does not touch the current character", ST:GetLifetimeValue(), 0)
-
--- ---------------------------------------------------------------------------
--- 12. Money formatting
+-- 11. Money formatting
 -- ---------------------------------------------------------------------------
 _G.GetMoneyString = nil -- exercise the arithmetic fallback first
 
@@ -276,7 +267,7 @@ eq("an empty formatter falls back to arithmetic", ST:FormatMoney(123456), "12g 3
 _G.GetMoneyString = nil
 
 -- ---------------------------------------------------------------------------
--- 13. Scan callback refreshes the readout
+-- 12. Scan callback refreshes the readout
 -- ---------------------------------------------------------------------------
 fresh()
 check("RegisterForDBUpdate was called at login", type(stubs.dbUpdateCallback) == "function")
@@ -288,7 +279,7 @@ check("a completed scan refreshes the window", refreshed)
 ST.UI = nil
 
 -- ---------------------------------------------------------------------------
--- 14. /skt gold
+-- 13. /skt gold
 -- ---------------------------------------------------------------------------
 local function allPrinted()
     return table.concat(stubs.printed, "\n")
@@ -302,18 +293,27 @@ check("/skt gold explains a missing Auctionator",
 fresh()
 SlashCmdList["SKINNINGTRACKER"]("gold")
 check("/skt gold with no loot says so",
-    allPrinted():find("No Majestic materials looted yet") ~= nil, allPrinted())
+    allPrinted():find("Nothing looted yet this session") ~= nil, allPrinted())
+
+-- Stored lifetime counts alone must not make the command report anything:
+-- only what was looted this session is valued.
+fresh()
+stubs.prices[CLAW] = 12 * GOLD
+charData().items[CLAW] = 40
+SlashCmdList["SKINNINGTRACKER"]("gold")
+check("/skt gold ignores stored counts with an empty session",
+    allPrinted():find("Nothing looted yet this session") ~= nil, allPrinted())
 
 fresh()
 stubs.prices[CLAW] = 12 * GOLD
 stubs.ages[CLAW] = 3
 ST.sessionItems[CLAW] = 4
-charData().items[CLAW] = 10
 SlashCmdList["SKINNINGTRACKER"]("gold")
-check("/skt gold reports the unit price", allPrinted():find("Majestic Claw") ~= nil, allPrinted())
-check("/skt gold reports the session total", allPrinted():find("Session:") ~= nil, allPrinted())
-check("/skt gold reports the lifetime total", allPrinted():find("Lifetime:") ~= nil, allPrinted())
+check("/skt gold reports the material", allPrinted():find("Majestic Claw") ~= nil, allPrinted())
+check("/skt gold reports the session total", allPrinted():find("Session value:") ~= nil, allPrinted())
 check("/skt gold reports the scan age", allPrinted():find("scanned 3d ago") ~= nil, allPrinted())
+check("/skt gold does not mention a lifetime figure",
+    allPrinted():lower():find("lifetime") == nil, allPrinted())
 
 fresh()
 stubs.prices[CLAW] = 12 * GOLD
@@ -322,7 +322,7 @@ ST.sessionItems[HIDE] = 1 -- no price
 SlashCmdList["SKINNINGTRACKER"]("gold")
 check("/skt gold names the unpriced material",
     allPrinted():find("no price") ~= nil, allPrinted())
-check("/skt gold marks the totals as incomplete",
+check("/skt gold marks the total as incomplete",
     allPrinted():find("incomplete") ~= nil, allPrinted())
 
 -- `/skt value` is the same command
@@ -330,7 +330,7 @@ fresh()
 stubs.prices[CLAW] = 12 * GOLD
 ST.sessionItems[CLAW] = 1
 SlashCmdList["SKINNINGTRACKER"]("value")
-check("/skt value is an alias for /skt gold", allPrinted():find("Session:") ~= nil, allPrinted())
+check("/skt value is an alias for /skt gold", allPrinted():find("Session value:") ~= nil, allPrinted())
 
 -- ---------------------------------------------------------------------------
 -- Report
