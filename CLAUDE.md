@@ -52,7 +52,8 @@ Earlier entries below were written before anything had been run in the client. C
 | Escape closes the window (1.4.5) | ✅ confirmed |
 | Reset countdown | ✅ plausible — showed 12h02m against a 15:00 UTC boundary. Note US realms cannot distinguish the API path from the old fixed-hour fallback, since both agree |
 | Majestic loot counter increments (1.4.4) | ⏳ **unverified** — needs a drop |
-| ElvUI datatext (all of it) | ⏳ unverified — owner does not use ElvUI, guildie to test |
+| ElvUI datatext (all of it) | ✅ confirmed — owner reports the panel reads correctly and the hover tooltip renders (2026-08-03). Only the tooltip's anchor was wrong; fixed in 1.5.1 |
+| ElvUI tooltip opens above the panel (1.5.1) | ⏳ unverified — one-line anchor change, needs a hover to confirm |
 | Datatext refresh across daily reset (1.4.3) | ⏳ unverified — needs to be logged in at reset |
 | Soft-target skinning (1.4.6) | ⏳ unverified |
 | Checkboxes locked while Manual Edit is off (1.4.8) | ✅ confirmed — owner reports the check does not respond until the button is clicked. This is the `RegisterForClicks()` assumption the harness cannot test; the `SetDisabledCheckedTexture` fallback is not needed |
@@ -123,6 +124,24 @@ Current confirmed working Majestic loot alert:
 - Finding 1
 - Finding 2
 -->
+
+### [2026-08-03] Claude Opus 5 — ElvUI tooltip anchor (1.5.1)
+
+One line: `OnEnter` in `SkinningTrackerElvUI.lua` anchored `ANCHOR_BOTTOMLEFT`,
+which pins the tooltip's top-right to the panel's bottom-left, so it grew down
+and to the left and sat beside the bar. `ANCHOR_TOP` puts the tooltip's bottom
+edge on the panel's top edge, so every added line pushes it further from the
+screen edge the bar sits on. This is the same anchor the rest of the UI uses.
+
+`GameTooltip` is clamped to the screen, so a datatext panel placed at the very
+top of the screen will have the tooltip pushed back down over the bar. That is
+a trade against the bottom and middle placements, which is where these bars
+normally live, and it is not a new failure mode — the old anchor was clamped
+the same way from the bottom.
+
+Nothing else changed. Tooltips are stubbed no-ops in the harness, so this is not
+test-covered by construction; the 107 existing tests were re-run as a
+regression check only.
 
 ### [2026-08-02] Claude Opus 5 — Session gold via Auctionator (1.5.0)
 

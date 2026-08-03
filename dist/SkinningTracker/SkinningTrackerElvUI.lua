@@ -90,7 +90,13 @@ local function OnClick(self, btn)
 end
 
 local function OnEnter(self)
-    GameTooltip:SetOwner(self, "ANCHOR_BOTTOMLEFT")
+    -- ANCHOR_TOP grows the tooltip upward from the panel, which is what a
+    -- datatext bar wants: the bar is a thin strip and every line we add moves
+    -- the tooltip further away from the screen edge it sits on. The previous
+    -- ANCHOR_BOTTOMLEFT pinned the tooltip's top-right to the panel's
+    -- bottom-left, so it grew down and to the left and ended up beside the bar
+    -- rather than above it. Matches the ANCHOR_TOP used throughout the UI file.
+    GameTooltip:SetOwner(self, "ANCHOR_TOP")
     GameTooltip:ClearLines()
     GameTooltip:AddLine("Skinning Tracker", 0, 1, 0.59)
 

@@ -2,7 +2,7 @@
 ## Title: Skinning Tracker - Renowned Beasts
 ## Notes: Tracks daily Renowned Beast skinning across Midnight profession skinner characters.
 ## Author: brobersonjr
-## Version: 1.5.0
+## Version: 1.5.1
 ## SavedVariables: SkinningTrackerDB, SkinningTrackerUIDB
 ## OptionalDeps: ElvUI, Auctionator
 

@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.5.1 - 2026-08-03
+- The ElvUI datatext tooltip now opens above the panel and grows upward, instead of appearing to the left of it.
+
 ## 1.5.0 - 2026-08-02
 - Show what this session's skinning is worth, using the auction prices Auctionator has scanned on your realm. The tracker window's bottom bar now reads `Session value: ...`.
 - Session value clears on logout or `/reload`, exactly like the session item counts it is built from. Nothing about it is saved.
