@@ -92,7 +92,7 @@ the enable state at the time it was last written, so toggling an addon off,
 testing, and toggling it back on leaves the file reading `enabled`. It cannot be
 used after the fact to tell a passing negative test from a load-order bug.
 
-Owner plays on Proudmoore (US). Reset boundary is 15:00 UTC.
+Owner is on a US realm, so the reset boundary is 15:00 UTC.
 
 ## Sound System Notes
 `PlaySoundFile` with file paths does NOT work in Midnight — all audio is in CASC storage with no path access.

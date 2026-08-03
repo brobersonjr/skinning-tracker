@@ -49,7 +49,7 @@ function M.install(env)
     }
 
     env.UnitName    = function() return M.playerName or "Tester" end
-    env.GetRealmName= function() return M.realmName or "Proudmoore" end
+    env.GetRealmName= function() return M.realmName or "TestRealm" end
     env.UnitClass   = function() return "Hunter", "HUNTER" end
     env.UnitGUID    = function() return nil end
     env.IsSpellKnown= function() return M.spellKnown end
